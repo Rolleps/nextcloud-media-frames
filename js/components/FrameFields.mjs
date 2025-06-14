@@ -20,19 +20,61 @@ const getClosestOption = (options, current) =>
   options.find((option) => option >= current) || options.at(-1);
 
 const styles = {
+  frameFields: css`
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 3rem;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+      gap: 0;
+    }
+
+    > * {
+      flex: 1 1 1%;
+    }
+
+    input,
+    select {
+      height: auto;
+    }
+  `,
+  detailColumns: css`
+    max-width: 30rem;
+    display: flex;
+    gap: 1rem;
+
+    > * {
+      flex: 1 1 1%;
+    }
+
+    input,
+    select {
+      width: 100%;
+    }
+  `,
   radioButtons: css`
     margin-top: 1rem;
     display: flex;
     flex-direction: column;
   `,
   fieldTitle: css`
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 0.3rem;
     font-size: 1.2rem;
     font-weight: 600;
 
     & + * {
       margin-top: 0 !important;
+    }
+  `,
+  previewColumn: css`
+    display: flex;
+    flex-direction: column;
+
+    @media screen and (max-width: 768px) {
+      flex-flow: column-reverse;
     }
   `,
   preview: css`
@@ -42,8 +84,8 @@ const styles = {
     color: var(--color-error);
   `,
   screen: css`
-    width: 350px;
-    max-width: 100%;
+    width: 100%;
+    max-width: 400px;
   `,
 };
 
@@ -62,6 +104,7 @@ export default function FrameFields(props) {
     albumId: frame.albumId || "",
     selectionMethod: frame.selectionMethod || "latest",
     showPhotoTimestamp: !!frame.showPhotoTimestamp,
+    photoSize: frame.photoSize || "contain",
     rotationUnit: frame.rotationUnit || "hour",
     rotationsPerUnit: frame.rotationsPerUnit || 1,
     startDayAt: frame.startDayAt || "07:00",
@@ -99,38 +142,41 @@ export default function FrameFields(props) {
   }, [startEndIsInvalid]);
 
   return html`
-    <div className="row">
-      <div className="col">
+    <div className=${styles.frameFields}>
+      <div>
         <input type="hidden" name="requesttoken" value="${requestToken}" />
 
-        <div>
-          <h3 className=${styles.fieldTitle}>Name</h3>
-          <input
-            name="name"
-            placeholder="Pick a name for your photo frame"
-            required
-            value="${data.name}"
-            onInput=${handleInput}
-          />
-        </div>
+        <div className=${styles.detailColumns}>
+          <div>
+            <h3 className=${styles.fieldTitle}>Name</h3>
+            <input
+              name="name"
+              placeholder="Fill in a name"
+              required
+              className=${styles.nameInput}
+              value=${data.name}
+              onInput=${handleInput}
+            />
+          </div>
 
-        <div>
-          <h3 className=${styles.fieldTitle}>Album</h3>
-          <select
-            name="albumId"
-            required
-            value="${data.albumId}"
-            onChange=${handleInput}
-          >
-            <option value="" disabled>Choose an album</option>
-            ${albums.map(
-              (album) => html`
-                <option key=${album.id} value=${album.id}>
-                  ${album.title}
-                </option>
-              `
-            )}
-          </select>
+          <div>
+            <h3 className=${styles.fieldTitle}>Album</h3>
+            <select
+              name="albumId"
+              required
+              value="${data.albumId}"
+              onChange=${handleInput}
+            >
+              <option value="" disabled>Choose album</option>
+              ${albums.map(
+                (album) => html`
+                  <option key=${album.id} value=${album.id}>
+                    ${album.title}
+                  </option>
+                `
+              )}
+            </select>
+          </div>
         </div>
 
         <div>
@@ -205,9 +251,7 @@ export default function FrameFields(props) {
             ${" "}${nPhotos(data.rotationsPerUnit, false)}
           </p>
         </div>
-      </div>
 
-      <div className="col">
         <div>
           <h3 className=${styles.fieldTitle}>Day start / end</h3>
           <p>
@@ -253,7 +297,18 @@ export default function FrameFields(props) {
                   : html`<${Schedule} ...${data} />`}
               `}
         </div>
+      </div>
 
+      <div className=${styles.previewColumn}>
+        <div className=${styles.preview}>
+          <${Screen} className=${styles.screen}>
+            <${Frame}
+              showPhotoTimestamp=${data.showPhotoTimestamp}
+              photoSize=${data.photoSize}
+              image=${testImage}
+            />
+          <//>
+        </div>
         <div>
           <h3 className=${styles.fieldTitle}>Display options</h3>
           <label>
@@ -267,13 +322,46 @@ export default function FrameFields(props) {
             <span>Show photo date</span>
           </label>
 
-          <div className=${styles.preview}>
-            <${Screen} className=${styles.screen}>
-              <${Frame}
-                showPhotoTimestamp=${data.showPhotoTimestamp}
-                image=${testImage}
+          <div className=${styles.radioButtons}>
+            <label>
+              <input
+                type="radio"
+                name="photoSize"
+                value="contain"
+                required
+                checked=${data.photoSize === "contain"}
+                onChange=${handleInput}
               />
-            <//>
+              <span>
+                <strong>Contain</strong> the full photo within the frame
+              </span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="photoSize"
+                value="cover"
+                required
+                checked=${data.photoSize === "cover"}
+                onChange=${handleInput}
+              />
+              <span>
+                <strong>Cover</strong> the full frame, scaling proportionally
+              </span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="photoSize"
+                value="stretch"
+                required
+                checked=${data.photoSize === "stretch"}
+                onChange=${handleInput}
+              />
+              <span>
+                <strong>Stretch</strong> photo to the edges of the frame
+              </span>
+            </label>
           </div>
         </div>
       </div>
