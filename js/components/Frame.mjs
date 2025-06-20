@@ -101,13 +101,17 @@ const styles = {
 
 export default function Frame(props) {
   const { showPhotoTimestamp, photoSize, image } = props;
+  const showBackground = photoSize === "contain";
 
   return html`
     <div className=${styles.frame}>
-      <div
-        className=${styles.photoBackground}
-        style=${{ backgroundImage: `url("${image.url}")` }}
-      />
+      ${showBackground &&
+      html`
+        <div
+          className=${styles.photoBackground}
+          style=${{ backgroundImage: `url("${image.url}")` }}
+        />
+      `}
       <div
         className=${[styles.photo, photoSize].join(" ")}
         style=${{ backgroundImage: `url("${image.url}")` }}
