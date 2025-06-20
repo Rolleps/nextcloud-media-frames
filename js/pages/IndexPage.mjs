@@ -73,7 +73,8 @@ export default function IndexPage(props) {
   const closeModal = () => setModalShown(false);
 
   const deleteFrame = async (frame) => {
-    if (!confirm("Are you sure that you want to delete the frame?")) return;
+    if (!confirm(`Are you sure that you want to delete "${frame.name}"?`))
+      return;
 
     const prevFrames = frames.slice();
     setFrames(prevFrames.filter((f) => f.id !== frame.id));
