@@ -368,6 +368,28 @@ export default function FrameFields(props) {
                 <strong>Stretch</strong> photo to the edges of the frame
               </span>
             </label>
+            <label>
+              <input
+                type="radio"
+                name="photoSize"
+                value="smart-crop"
+                required
+                checked=${data.photoSize === "smart-crop"}
+                onChange=${handleInput}
+              />
+              <span>
+                <strong>Smart crop<sup>*</sup></strong> photo</span
+              >
+            </label>
+
+            <p>
+              <strong>*: </strong>
+              Smart crop attempts to cover the whole frame, but only cuts up to
+              25 percent of the content (width or height). Photos sharing
+              orientation with the frame (landscape or portrait), will generally
+              fit perfectly, while at the same time photos with unmatching
+              orientation won't have too much of their contents cut.
+            </p>
           </div>
         </div>
       </div>

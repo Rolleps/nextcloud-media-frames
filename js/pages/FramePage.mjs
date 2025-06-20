@@ -106,6 +106,55 @@ const styles = {
   `,
 };
 
+const getLoadedImage = async (url) => {
+  const image = new Image();
+  const loadPromise = new Promise((res, rej) => {
+    image.onload = res;
+    image.onerror = rej;
+  });
+  image.src = url;
+
+  await loadPromise;
+  return image;
+};
+
+const getSmartCroppedImage = async (url) => {
+  const cropMax = 0.25;
+  const image = await getLoadedImage(url);
+  const ratio = image.width / image.height;
+  const windowRatio = window.innerWidth / window.innerHeight;
+  const aspectDiff = ratio - windowRatio;
+
+  let croppedHeight = image.height;
+  let croppedWidth = image.width;
+
+  if (aspectDiff > 0) {
+    // Crop width
+    const widthDiff = aspectDiff / ratio;
+    const cropAmount = Math.min(cropMax, widthDiff);
+    croppedWidth -= image.width * cropAmount;
+  } else {
+    // Crop height
+    const heightDiff = Math.abs(aspectDiff) / windowRatio;
+    const cropAmount = Math.min(cropMax, heightDiff);
+    croppedHeight -= image.height * cropAmount;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = croppedWidth;
+  canvas.height = croppedHeight;
+  const ctx = canvas.getContext("2d");
+
+  const offsetX = -Math.round((image.width - croppedWidth) / 2);
+  const offsetY = -Math.round((image.height - croppedHeight) / 2);
+  ctx.drawImage(image, offsetX, offsetY);
+  const blob = await new Promise((res) => {
+    canvas.toBlob(res);
+  });
+
+  return URL.createObjectURL(blob);
+};
+
 export default function FramePage(props) {
   const { showPhotoTimestamp, photoSize } = props;
   const imageUrl = location.href + "/image";
@@ -141,10 +190,15 @@ export default function FramePage(props) {
       const imageResponse = await fetch(imageUrl);
       const blob = await imageResponse.blob();
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
+        const url =
+          photoSize === "smart-crop"
+            ? await getSmartCroppedImage(reader.result)
+            : reader.result;
+
         const rotationUnit = imageResponse.headers.get("X-Frame-Rotation-Unit");
         const nextImage = {
-          url: reader.result,
+          url,
           expiresAt: new Date(imageResponse.headers.get("expires")),
           timestamp: new Date(
             imageResponse.headers.get("X-Photo-Timestamp") * 1000

@@ -43,7 +43,8 @@ const styles = {
       background-size: 100% 100%;
     }
 
-    &.contain {
+    &.contain,
+    &.smart-crop {
       background-size: contain;
     }
 
