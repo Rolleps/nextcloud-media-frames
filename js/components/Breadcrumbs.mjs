@@ -14,6 +14,10 @@ const styles = {
     background-color: var(--color-main-background);
     box-shadow: 0px 5px 10px var(--color-main-background);
   `,
+  items: css`
+    flex: 1 1 auto;
+    width: 1%;
+  `,
   parents: css`
     display: flex;
     align-items: center;
@@ -25,21 +29,27 @@ const styles = {
   `,
   current: css`
     margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   `,
 };
 
 export default function Breadcrumbs(props) {
-  const parents = props.items.slice()
-  const current = parents.pop()
+  const { items, ...restProps } = props;
+  const parents = props.items.slice();
+  const current = parents.pop();
 
   return html`
     <div className=${styles.breadcrumbs}>
-      <div>
-        <div className=${styles.parents} ...${props}>
-          ${parents.map(item => html`
-            <a className=${styles.parent} href=${item.url}>${item.title}</a>
-            ${' > '}
-          `)}
+      <div className=${styles.items}>
+        <div className=${styles.parents} ...${restProps}>
+          ${parents.map(
+            (item) => html`
+              <a className=${styles.parent} href=${item.url}>${item.title}</a>
+              ${" > "}
+            `
+          )}
         </div>
         <h2 className=${styles.current}>${current.title}</h2>
       </div>
