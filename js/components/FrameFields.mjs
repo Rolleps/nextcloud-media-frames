@@ -24,6 +24,7 @@ const styles = {
     display: flex;
     flex-direction: row;
     width: 100%;
+    max-width: 1600px;
     gap: 3rem;
 
     @media screen and (max-width: 768px) {
@@ -86,6 +87,11 @@ const styles = {
   screen: css`
     width: 100%;
     max-width: 400px;
+
+    @media screen and (min-width: 1400px) {
+      font-size: 50%;
+      max-width: 600px;
+    }
   `,
 };
 
