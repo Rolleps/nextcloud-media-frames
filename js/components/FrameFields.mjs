@@ -80,14 +80,22 @@ const styles = {
   `,
   preview: css`
     margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
   `,
   error: css`
     color: var(--color-error);
   `,
   screen: css`
+    padding: 1rem;
     width: 100%;
     max-width: 400px;
+    font-size: 20%;
 
+    @media screen and (min-width: 600px) {
+      font-size: 33.33%;
+      max-width: 600px;
+    }
     @media screen and (min-width: 1400px) {
       font-size: 50%;
       max-width: 600px;
@@ -95,8 +103,12 @@ const styles = {
   `,
 };
 
-const testImage = {
+const testImageLandscape = {
   url: `${window.appPath}/img/landscape.jpg`,
+  timestamp: new Date(),
+};
+const testImagePortrait = {
+  url: `${window.appPath}/img/portrait.jpg`,
   timestamp: new Date(),
 };
 
@@ -110,7 +122,7 @@ export default function FrameFields(props) {
     albumId: frame.albumId || "",
     selectionMethod: frame.selectionMethod || "latest",
     showPhotoTimestamp: !!frame.showPhotoTimestamp,
-    photoSize: frame.photoSize || "contain",
+    photoSize: frame.photoSize || "smart-crop",
     rotationUnit: frame.rotationUnit || "hour",
     rotationsPerUnit: frame.rotationsPerUnit || 1,
     startDayAt: frame.startDayAt || "07:00",
@@ -311,7 +323,14 @@ export default function FrameFields(props) {
             <${Frame}
               showPhotoTimestamp=${data.showPhotoTimestamp}
               photoSize=${data.photoSize}
-              image=${testImage}
+              image=${testImageLandscape}
+            />
+          <//>
+          <${Screen} className=${styles.screen}>
+            <${Frame}
+              showPhotoTimestamp=${data.showPhotoTimestamp}
+              photoSize=${data.photoSize}
+              image=${testImagePortrait}
             />
           <//>
         </div>
@@ -329,6 +348,21 @@ export default function FrameFields(props) {
           </label>
 
           <div className=${styles.radioButtons}>
+            <label>
+              <input
+                type="radio"
+                name="photoSize"
+                value="smart-crop"
+                required
+                checked=${data.photoSize === "smart-crop"}
+                onChange=${handleInput}
+              />
+              <span>
+                <strong>Smart crop</strong>: Attempt to fit frame, but keep at
+                least 75% of the photo visible</span
+              >
+            </label>
+
             <label>
               <input
                 type="radio"
@@ -368,28 +402,6 @@ export default function FrameFields(props) {
                 <strong>Stretch</strong> photo to the edges of the frame
               </span>
             </label>
-            <label>
-              <input
-                type="radio"
-                name="photoSize"
-                value="smart-crop"
-                required
-                checked=${data.photoSize === "smart-crop"}
-                onChange=${handleInput}
-              />
-              <span>
-                <strong>Smart crop<sup>*</sup></strong> photo</span
-              >
-            </label>
-
-            <p>
-              <strong>*: </strong>
-              Smart crop attempts to cover the whole frame, but only cuts up to
-              25 percent of the content (width or height). Photos sharing
-              orientation with the frame (landscape or portrait), will generally
-              fit perfectly, while at the same time photos with unmatching
-              orientation won't have too much of their contents cut.
-            </p>
           </div>
         </div>
       </div>
