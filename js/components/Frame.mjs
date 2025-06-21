@@ -102,7 +102,7 @@ const styles = {
 
 export default function Frame(props) {
   const { showPhotoTimestamp, photoSize, image } = props;
-  const showBackground = photoSize === "contain";
+  const showBackground = ["contain", "smart-crop"].includes(photoSize);
 
   return html`
     <div className=${styles.frame}>
