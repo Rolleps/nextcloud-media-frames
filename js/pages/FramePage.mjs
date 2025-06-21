@@ -3,20 +3,13 @@ import {
   useEffect,
   useState,
 } from "../vendor/htm-preact-standalone.min.mjs";
-import { css, keyframes, injectGlobal } from "../vendor/emotion-css.min.mjs";
+import { injectGlobal } from "../vendor/emotion-css.min.mjs";
 import Frame from "../components/Frame.mjs";
 
 const rotationUnitRefreshInterval = {
   day: 1000 * 60, // One minute
   hour: 1000 * 60, // One minute
   minute: 1000, // One second
-};
-
-const animations = {
-  fadeIn: keyframes`
-    from { opacity: 0; }
-    to { opacity: 100; }
-  `,
 };
 
 injectGlobal`
@@ -28,132 +21,6 @@ injectGlobal`
     margin: 0;
   }
 `;
-
-const styles = {
-  frame: css`
-    animation: ${animations.fadeIn} 2s ease-in-out;
-    background-color: #000;
-    position: absolute;
-    width: 100vw;
-    height: 100vh;
-  `,
-  photoBackground: css`
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-position: center;
-    background-size: 100% 100%;
-    filter: blur(100px) brightness(70%);
-  `,
-  photo: css`
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-position: center;
-    background-size: contain;
-    background-repeat: no-repeat;
-  `,
-  dateContainer: css`
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: start;
-    padding: 1rem;
-  `,
-  dateBackground: css`
-    border-radius: 1rem;
-    border-top-left-radius: 0;
-    border-bottom-right-radius: 0;
-    padding: 1rem 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: start;
-    background-color: rgba(255, 250, 250, 0.4);
-    font-size: 2rem;
-    border: 1px solid rgba(213, 204, 195, 0.3);
-    box-shadow: 0px 5px 40px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(5px);
-  `,
-  date: css`
-    text-align: left;
-    text-transform: capitalize;
-    font-family: sans-serif;
-    margin: 0;
-    color: rgb(35, 18, 5);
-    text-shadow: 0px 0px 1px rgba(255, 255, 255, 0.4);
-  `,
-  dateSpacer: css`
-    height: 1.5px;
-    margin: 0.25rem 1rem 0 0.1rem;
-    background-color: rgb(35, 18, 5);
-  `,
-  year: css`
-    font-size: 2rem;
-    font-weight: 600;
-  `,
-  month: css`
-    font-size: 1.2rem;
-    font-weight: 500;
-    margin-left: 0.05rem;
-    padding-bottom: 0.2rem;
-    border-bottom: 1.5px solid rgb(35, 18, 5);
-  `,
-};
-
-const getLoadedImage = async (url) => {
-  const image = new Image();
-  const loadPromise = new Promise((res, rej) => {
-    image.onload = res;
-    image.onerror = rej;
-  });
-  image.src = url;
-
-  await loadPromise;
-  return image;
-};
-
-const getSmartCroppedImage = async (url) => {
-  const cropMax = 0.25;
-  const image = await getLoadedImage(url);
-  const ratio = image.width / image.height;
-  const windowRatio = window.innerWidth / window.innerHeight;
-  const aspectDiff = ratio - windowRatio;
-
-  let croppedHeight = image.height;
-  let croppedWidth = image.width;
-
-  if (aspectDiff > 0) {
-    // Crop width
-    const widthDiff = aspectDiff / ratio;
-    const cropAmount = Math.min(cropMax, widthDiff);
-    croppedWidth -= image.width * cropAmount;
-  } else {
-    // Crop height
-    const heightDiff = Math.abs(aspectDiff) / windowRatio;
-    const cropAmount = Math.min(cropMax, heightDiff);
-    croppedHeight -= image.height * cropAmount;
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = croppedWidth;
-  canvas.height = croppedHeight;
-  const ctx = canvas.getContext("2d");
-
-  const offsetX = -Math.round((image.width - croppedWidth) / 2);
-  const offsetY = -Math.round((image.height - croppedHeight) / 2);
-  ctx.drawImage(image, offsetX, offsetY);
-  const blob = await new Promise((res) => {
-    canvas.toBlob(res);
-  });
-
-  return URL.createObjectURL(blob);
-};
 
 export default function FramePage(props) {
   const { showPhotoTimestamp, photoSize } = props;
@@ -191,14 +58,9 @@ export default function FramePage(props) {
       const blob = await imageResponse.blob();
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const url =
-          photoSize === "smart-crop"
-            ? await getSmartCroppedImage(reader.result)
-            : reader.result;
-
         const rotationUnit = imageResponse.headers.get("X-Frame-Rotation-Unit");
         const nextImage = {
-          url,
+          url: reader.result,
           expiresAt: new Date(imageResponse.headers.get("expires")),
           timestamp: new Date(
             imageResponse.headers.get("X-Photo-Timestamp") * 1000

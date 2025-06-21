@@ -1,5 +1,12 @@
-import { html } from "../vendor/htm-preact-standalone.min.mjs";
+import {
+  html,
+  useCallback,
+  useEffect,
+  useRef,
+} from "../vendor/htm-preact-standalone.min.mjs";
 import { css, keyframes } from "../vendor/emotion-css.min.mjs";
+import getLoadedImage from "../utils/getLoadedImage.mjs";
+import renderSmartCroppedImage from "../utils/renderSmartCroppedImage.mjs";
 
 const animations = {
   fadeIn: keyframes`
@@ -102,7 +109,28 @@ const styles = {
 
 export default function Frame(props) {
   const { showPhotoTimestamp, photoSize, image } = props;
+  const canvasRef = useRef();
+  const loadedImageRef = useRef();
   const showBackground = ["contain", "smart-crop"].includes(photoSize);
+  const renderOnCanvas = ["smart-crop"].includes(photoSize);
+
+  const renderImage = useCallback(async () => {
+    renderSmartCroppedImage(loadedImageRef.current, canvasRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!renderOnCanvas) return;
+
+    (async () => {
+      if (!loadedImageRef.current) {
+        loadedImageRef.current = await getLoadedImage(image.url);
+      }
+      renderImage();
+    })();
+
+    window.addEventListener("resize", renderImage);
+    return () => window.removeEventListener("resize", renderImage);
+  }, [renderOnCanvas]);
 
   return html`
     <div className=${styles.frame}>
@@ -113,11 +141,14 @@ export default function Frame(props) {
           style=${{ backgroundImage: `url("${image.url}")` }}
         />
       `}
-      <div
-        className=${[styles.photo, photoSize].join(" ")}
-        style=${{ backgroundImage: `url("${image.url}")` }}
-      />
-
+      ${renderOnCanvas
+        ? html`<canvas ref=${canvasRef} className=${styles.photo} />`
+        : html`
+            <div
+              className=${[styles.photo, photoSize].join(" ")}
+              style=${{ backgroundImage: `url("${image.url}")` }}
+            />
+          `}
       ${showPhotoTimestamp &&
       html`
         <div className=${styles.dateContainer}>
