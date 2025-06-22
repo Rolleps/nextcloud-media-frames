@@ -121,7 +121,8 @@ export default function FrameFields(props) {
     name: frame.name || "",
     albumId: frame.albumId || "",
     selectionMethod: frame.selectionMethod || "latest",
-    showPhotoTimestamp: !!frame.showPhotoTimestamp,
+    showPhotoTimestamp:
+      frame.showPhotoTimestamp !== null ? frame.showPhotoTimestamp : true,
     photoSize: frame.photoSize || "smart-crop",
     rotationUnit: frame.rotationUnit || "hour",
     rotationsPerUnit: frame.rotationsPerUnit || 1,
