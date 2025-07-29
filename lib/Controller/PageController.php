@@ -282,7 +282,7 @@ class PageController extends Controller
 
       $node = $service->getFrameFileNode($frameFile);
 
-      $preview = $this->preview->getPreview($node, 1000, 1000);
+      $preview = $this->preview->getPreview($node, 2560, height: 2560);
 
       $headers = [
         'X-Photo-Timestamp' => $frameFile->getCapturedAtTimestamp(),
