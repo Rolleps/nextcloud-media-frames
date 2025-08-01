@@ -22,6 +22,7 @@ use OCP\AppFramework\Db\Entity;
  * @method string getBackgroundType()
  * @method string getBackgroundColor()
  * @method DateTime getCreatedAt()
+ * @method string getJavascript()
  *
  * @method void setName(string $name)
  * @method void setUserUid(string $userUid)
@@ -38,6 +39,7 @@ use OCP\AppFramework\Db\Entity;
  * @method void setBackgroundType(string $backgroundType)
  * @method void setBackgroundColor(string $backgroundColor)
  * @method void setCreatedAt(\DateTime $createdAt)
+ * @method string setJavascript(string $javascript)
  */
 class Frame extends Entity
 {
@@ -73,6 +75,8 @@ class Frame extends Entity
   public $backgroundType;
   /** @var string */
   public $backgroundColor;
+  /** @var string */
+  public $javascript;
 
 
   /** @var string */
@@ -118,6 +122,7 @@ class Frame extends Entity
     $this->addType('backgroundType', 'string');
     $this->addType('backgroundColor', 'string');
     $this->addType('photoSize', 'string');
+    $this->addType('javascript', 'string');
     $this->addType('createdAt', 'datetime');
   }
 }
