@@ -1,5 +1,14 @@
-import { html, useState } from "../vendor/htm-preact-standalone.min.mjs";
+import { html, useRef } from "../vendor/htm-preact-standalone.min.mjs";
 import { css } from "../vendor/emotion-css.min.mjs";
+
+codeInput.registerTemplate(
+  "syntax-highlighted",
+  codeInput.templates.hljs(hljs, [
+    // You can add or remove plugins in this list from https://github.com/WebCoder49/code-input/blob/main/plugins/README.md.
+    // All plugins used must be imported above.
+    new codeInput.plugins.Indent(true, 2), // Allow Tab-key indentation, with 2 spaces indentation
+  ])
+);
 
 const styles = {
   modal: css`
@@ -15,6 +24,8 @@ const styles = {
 
     .container {
       background-color: var(--color-main-background);
+      width: 30rem;
+      max-width: 100%;
       padding: 1rem;
       display: flex;
       gap: 1rem;
@@ -31,13 +42,15 @@ const styles = {
 };
 
 export default function JavascriptModal(props) {
+  const codeInputRef = useRef(null);
   const { javascript: initialJavascript, onCancel, onSubmit } = props;
-  const [javascript, setJavascript] = useState(initialJavascript);
 
   const handleClose = (event) => {
     event.preventDefault();
 
-    const hasUnsavedChanges = javascript !== initialJavascript;
+    const textarea = codeInputRef.current.querySelector("textarea");
+    const hasUnsavedChanges =
+      textarea.value !== initialJavascript.replaceAll("\r", "");
     if (hasUnsavedChanges && !confirm("Discard unsaved changes?")) {
       return;
     }
@@ -46,21 +59,26 @@ export default function JavascriptModal(props) {
   };
 
   const handleSubmit = (event) => {
+    const textarea = codeInputRef.current.querySelector("textarea");
+
     event.preventDefault();
-    onSubmit(javascript);
+    onSubmit(textarea.value);
   };
 
   return html`
     <div
       className=${styles.modal}
-      onClick=${(e) => e.target === e.currentTarget && closeModal()}
+      onClick=${(e) => e.target === e.currentTarget && handleClose(e)}
     >
       <div className="container">
         <div className="content">
-          <textarea
-            value=${javascript}
-            onChange=${({ target }) => setJavascript(target.value)}
-          ></textarea>
+          <code-input
+            template="syntax-highlighted"
+            language="JavaScript"
+            ref=${codeInputRef}
+          >
+            ${initialJavascript}
+          </code-input>
         </div>
         <div className="actions">
           <button onClick=${handleClose}>Cancel</button>
