@@ -10,6 +10,7 @@ import Schedule from "./Schedule.mjs";
 import nPhotos from "../utils/nPhotos.mjs";
 import Screen from "./Screen.mjs";
 import RadioButtons from "./RadioButtons.mjs";
+import JavascriptModal from "./JavascriptModal.mjs";
 
 const rotationsOptionsForUnit = {
   day: [1, 2, 3, 4, 6, 8, 12],
@@ -162,7 +163,10 @@ export default function FrameFields(props) {
     rotationsPerUnit: frame.rotationsPerUnit || 1,
     startDayAt: frame.startDayAt || "07:00",
     endDayAt: frame.endDayAt || "22:00",
+    javascript: frame.javascript || "",
   });
+
+  const [openedModal, setOpenedModal] = useState(null);
 
   const handleInput = ({ target: { name, value, checked, type } }) => {
     setData((prev) => ({
@@ -178,6 +182,11 @@ export default function FrameFields(props) {
 
   // Rotation options
   const rotationsOptions = rotationsOptionsForUnit[data.rotationUnit];
+
+  const handleJavascriptSubmitted = (javascript) => {
+    setData((prev) => ({ ...prev, javascript }));
+    setOpenedModal(null);
+  };
 
   // Update rotations options when unit changes
   useEffect(() => {
@@ -494,8 +503,30 @@ export default function FrameFields(props) {
                   value=${data.backgroundColor}
                 />
               `}
+          <div>
+            <h3 className=${styles.fieldTitle}>
+              Advanced options (for programmers)
+            </h3>
+
+            <input type="hidden" name="javascript" value=${data.javascript} />
+            <button
+              onClick=${(event) => {
+                setOpenedModal("javascript");
+                event.preventDefault();
+              }}
+            >
+              Custom Javascript
+            </button>
+          </div>
         </div>
       </div>
     </div>
+
+    ${openedModal === "javascript" &&
+    html`<${JavascriptModal}
+      javascript=${data.javascript}
+      onCancel=${() => setOpenedModal(null)}
+      onSubmit=${handleJavascriptSubmitted}
+    />`}
   `;
 }

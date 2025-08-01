@@ -21,6 +21,14 @@
       render(html`<${Page} ...${pageProps} />`, document.querySelector('body'));
     })
   </script>
+
+  <?php if (isset($_['javascript'])): ?>
+    <script nonce="<?= $_['cspNonce']; ?>">
+      window.addEventListener('DOMContentLoaded', () => {
+        <?= $_['javascript']; ?>
+      })
+    </script>
+  <?php endif ?>
 </head>
 
 <body></body>

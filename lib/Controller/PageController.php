@@ -148,7 +148,8 @@ class PageController extends Controller
         (bool) $params['showClock'],
         $params['photoSize'],
         $params['backgroundType'],
-        $params['backgroundColor']
+        $params['backgroundColor'],
+        $params['javascript']
       );
 
       return new RedirectResponse(redirectURL: $this->urlGenerator->linkToRoute('photo_frames.page.index'));
@@ -203,7 +204,8 @@ class PageController extends Controller
         (bool) $params['showClock'],
         $params['photoSize'],
         $params['backgroundType'],
-        $params['backgroundColor']
+        $params['backgroundColor'],
+        $params['javascript']
       );
 
       return new RedirectResponse($this->urlGenerator->linkToRoute('photo_frames.page.index'));
@@ -254,6 +256,7 @@ class PageController extends Controller
         ],
         true,
         $frame->getBackgroundType() === 'color' ? $frame->getBackgroundColor() : '#000',
+        $frame->getJavascript(),
       );
     } catch (Exception $error) {
       return $this->errorPage($error);
@@ -296,7 +299,7 @@ class PageController extends Controller
     }
   }
 
-  private function renderPage($name, $props, $blank = false, $backgroundColor = '#000'): Response
+  private function renderPage($name, $props, $blank = false, $backgroundColor = '#000', $javascript = ''): Response
   {
     $response = new TemplateResponse(
       appName: Application::APP_ID,
@@ -304,6 +307,7 @@ class PageController extends Controller
       params: [
         'pageName' => $name,
         'pageProps' => $props,
+        "javascript" => $blank ? $javascript : null,
         'backgroundColor' => $backgroundColor,
         "appPath" => $this->appManager->getAppWebPath('photo_frames'),
       ],
