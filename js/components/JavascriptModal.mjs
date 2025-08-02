@@ -4,8 +4,6 @@ import { css } from "../vendor/emotion-css.min.mjs";
 codeInput.registerTemplate(
   "syntax-highlighted",
   codeInput.templates.hljs(hljs, [
-    // You can add or remove plugins in this list from https://github.com/WebCoder49/code-input/blob/main/plugins/README.md.
-    // All plugins used must be imported above.
     new codeInput.plugins.Indent(true, 2), // Allow Tab-key indentation, with 2 spaces indentation
   ])
 );
@@ -24,7 +22,7 @@ const styles = {
 
     .container {
       background-color: var(--color-main-background);
-      width: 30rem;
+      width: 50rem;
       max-width: 100%;
       padding: 1rem;
       display: flex;
@@ -32,6 +30,11 @@ const styles = {
       flex-direction: column;
       border-radius: 0.5rem;
       box-shadow: 0px 10px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    code-input textarea {
+      outline: none !important;
+      box-shadow: none !important;
     }
 
     .actions {
