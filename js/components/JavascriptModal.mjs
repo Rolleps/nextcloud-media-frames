@@ -20,8 +20,8 @@ const styles = {
 
     .container {
       background-color: var(--color-main-background);
-      width: 50rem;
-      max-width: 100%;
+      max-width: 55rem;
+      width: calc(100% - 2rem);
       padding: 1rem;
       display: flex;
       gap: 1rem;
@@ -30,9 +30,11 @@ const styles = {
       box-shadow: 0px 10px 50px rgba(0, 0, 0, 0.4);
     }
 
-    code-input textarea {
-      outline: none !important;
-      box-shadow: none !important;
+    code-input {
+      textarea {
+        outline: none !important;
+        box-shadow: none !important;
+      }
     }
 
     .actions {

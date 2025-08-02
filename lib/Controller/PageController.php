@@ -116,7 +116,7 @@ class PageController extends Controller
     try {
       $uid = $this->currentUser->getUID();
       Util::addStyle(Application::APP_ID, 'main');
-      Util::addStyle(Application::APP_ID, 'vendor/highlight.min');
+      Util::addStyle(Application::APP_ID, 'highlight-theme');
       Util::addStyle(Application::APP_ID, 'vendor/code-input.min');
       Util::addScript(Application::APP_ID, 'vendor/highlight.min');
       Util::addScript(Application::APP_ID, 'vendor/highlight-javascript.min');
@@ -173,7 +173,7 @@ class PageController extends Controller
       $uid = $this->currentUser->getUID();
 
       Util::addStyle(Application::APP_ID, 'main');
-      Util::addStyle(Application::APP_ID, 'vendor/highlight.min');
+      Util::addStyle(Application::APP_ID, 'highlight-theme');
       Util::addStyle(Application::APP_ID, 'vendor/code-input.min');
       Util::addScript(Application::APP_ID, 'vendor/highlight.min');
       Util::addScript(Application::APP_ID, 'vendor/highlight-javascript.min');
