@@ -3,9 +3,7 @@ import { css } from "../vendor/emotion-css.min.mjs";
 
 codeInput.registerTemplate(
   "syntax-highlighted",
-  codeInput.templates.hljs(hljs, [
-    new codeInput.plugins.Indent(true, 2), // Allow Tab-key indentation, with 2 spaces indentation
-  ])
+  codeInput.templates.hljs(hljs)
 );
 
 const styles = {

@@ -121,7 +121,6 @@ class PageController extends Controller
       Util::addScript(Application::APP_ID, 'vendor/highlight.min');
       Util::addScript(Application::APP_ID, 'vendor/highlight-javascript.min');
       Util::addScript(Application::APP_ID, 'vendor/code-input.min');
-      Util::addScript(Application::APP_ID, 'vendor/code-input-indent.min');
 
       return $this->renderPage('NewPage', [
         'frame' => new Frame(),
@@ -179,7 +178,6 @@ class PageController extends Controller
       Util::addScript(Application::APP_ID, 'vendor/highlight.min');
       Util::addScript(Application::APP_ID, 'vendor/highlight-javascript.min');
       Util::addScript(Application::APP_ID, 'vendor/code-input.min');
-      Util::addScript(Application::APP_ID, 'vendor/code-input-indent.min');
 
       return $this->renderPage('EditPage', [
         'frame' => $this->frameMapper->getByUserIdAndFrameId($uid, (int) $id),
