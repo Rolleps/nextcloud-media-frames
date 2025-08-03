@@ -6,6 +6,7 @@ import {
 import { injectGlobal } from "../vendor/emotion-css.min.mjs";
 import Frame from "../components/Frame.mjs";
 import EmptyAlbum from "../components/EmptyAlbum.mjs";
+import dispatch from "../utils/dispatch.mjs";
 
 const rotationUnitRefreshInterval = {
   day: 1000 * 60, // One minute
@@ -65,6 +66,7 @@ export default function FramePage(props) {
       if (imageResponse.status === 404) {
         if (timeout) clearTimeout(timeout);
         setAlbumIsEmpty(true);
+        dispatch("pf:frame-ready", { image: null });
         return;
       }
 
@@ -83,11 +85,22 @@ export default function FramePage(props) {
           refreshInterval: rotationUnitRefreshInterval[rotationUnit],
         };
         setImages([currentImage, nextImage].filter(Boolean));
+        dispatch("pf:image-loadend", { reader, image: nextImage });
 
         // Remove previous image when the new image has faded in
-        if (currentImage) setTimeout(() => setImages([nextImage]), 2000);
+        if (currentImage) {
+          dispatch("pf:image-fadestart", { image: nextImage });
+          setTimeout(() => {
+            setImages([nextImage]);
+            dispatch("pf:image-visible", { image: nextImage });
+          }, 2000);
+        } else {
+          dispatch("pf:image-visible", { image: nextImage });
+          dispatch("pf:frame-ready", { image: nextImage });
+        }
       };
       reader.readAsDataURL(blob);
+      dispatch("pf:image-loadstart", { reader });
     };
 
     timeout = setTimeout(updateImage, currentImage?.refreshInterval || 0);

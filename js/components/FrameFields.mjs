@@ -515,7 +515,7 @@ export default function FrameFields(props) {
                 event.preventDefault();
               }}
             >
-              Custom Javascript
+              Custom JavaScript
             </button>
           </div>
         </div>

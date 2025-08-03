@@ -9,6 +9,7 @@ codeInput.registerTemplate(
 const styles = {
   modal: css`
     position: fixed;
+    z-index: 1;
     top: 0;
     left: 0;
     right: 0;
@@ -31,6 +32,8 @@ const styles = {
     }
 
     code-input {
+      margin: 0 !important;
+
       textarea {
         outline: none !important;
         box-shadow: none !important;
@@ -75,6 +78,54 @@ export default function JavascriptModal(props) {
     >
       <div className="container">
         <div className="content">
+          <h3>Edit custom JavaScript</h3>
+          <p>
+            Script will execute on <i>DOMContentLoaded</i>. Available events
+            are:
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Event details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>pf:image-loadstart</td>
+                <td>Image starts loading.</td>
+                <td>reader: file reader</td>
+              </tr>
+              <tr>
+                <td>pf:image-loadend</td>
+                <td>Image was loaded and is ready to be shown</td>
+                <td>
+                  reader: file reader<br />
+                  image
+                </td>
+              </tr>
+              <tr>
+                <td>pf:image-fadestart</td>
+                <td>
+                  Image started fading in (not dispatched for first image)
+                </td>
+                <td>image</td>
+              </tr>
+              <tr>
+                <td>pf:image-visible</td>
+                <td>Image is shown fully</td>
+                <td>image</td>
+              </tr>
+              <tr>
+                <td>pf:frame-ready</td>
+                <td>Frame is ready</td>
+                <td>image: First image or null if empty frame</td>
+              </tr>
+            </tbody>
+          </table>
+
           <code-input
             template="syntax-highlighted"
             language="JavaScript"
