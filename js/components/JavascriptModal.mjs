@@ -1,4 +1,8 @@
-import { html, useRef } from "../vendor/htm-preact-standalone.min.mjs";
+import {
+  html,
+  useEffect,
+  useRef,
+} from "../vendor/htm-preact-standalone.min.mjs";
 import { css } from "../vendor/emotion-css.min.mjs";
 
 codeInput.registerTemplate(
@@ -9,7 +13,7 @@ codeInput.registerTemplate(
 const styles = {
   modal: css`
     position: fixed;
-    z-index: 1;
+    z-index: 2001 /* nextcloud header has 2000 */;
     top: 0;
     left: 0;
     right: 0;
@@ -21,8 +25,10 @@ const styles = {
 
     .container {
       background-color: var(--color-main-background);
-      max-width: 55rem;
       width: calc(100% - 2rem);
+      max-width: 55rem;
+      height: calc(100% - 2rem);
+      max-height: 100rem;
       padding: 1rem;
       display: flex;
       gap: 1rem;
@@ -31,7 +37,24 @@ const styles = {
       box-shadow: 0px 10px 50px rgba(0, 0, 0, 0.4);
     }
 
+    .content {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    h3 {
+      margin: 0 0 0.5rem;
+    }
+
+    p {
+      margin: 0 0 0.5rem;
+    }
+
     code-input {
+      min-height: 5rem;
+      flex-grow: 1;
       margin: 0 !important;
 
       textarea {
@@ -50,6 +73,16 @@ const styles = {
 export default function JavascriptModal(props) {
   const codeInputRef = useRef(null);
   const { javascript: initialJavascript, onCancel, onSubmit } = props;
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    document.body.querySelector("#content").style.position = "static";
+
+    return () => {
+      document.body.style.overflow = "";
+      document.body.querySelector("#content").style.position = "";
+    };
+  }, []);
 
   const handleClose = (event) => {
     event.preventDefault();
@@ -79,12 +112,22 @@ export default function JavascriptModal(props) {
       <div className="container">
         <div className="content">
           <h3>Edit custom JavaScript</h3>
-          <p>
-            Script will execute on <i>DOMContentLoaded</i>. Available events
-            are:
-          </p>
 
+          <p>Script will execute on <i>DOMContentLoaded</i>.</p>
+
+          <code-input
+            template="syntax-highlighted"
+            language="JavaScript"
+            ref=${codeInputRef}
+          >
+            ${initialJavascript}
+          </code-input>
           <table>
+            <thead>
+              <tr>
+                <th colspan="3">Available events (on <i>window</i>)</th>
+              </tr>
+            </thead>
             <thead>
               <tr>
                 <th>Name</th>
@@ -125,14 +168,6 @@ export default function JavascriptModal(props) {
               </tr>
             </tbody>
           </table>
-
-          <code-input
-            template="syntax-highlighted"
-            language="JavaScript"
-            ref=${codeInputRef}
-          >
-            ${initialJavascript}
-          </code-input>
         </div>
         <div className="actions">
           <button onClick=${handleClose}>Cancel</button>
