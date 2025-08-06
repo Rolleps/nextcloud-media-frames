@@ -53,13 +53,46 @@ const styles = {
     }
 
     code-input {
-      min-height: 5rem;
+      border-radius: 0.5rem;
+      min-height: 10rem;
       flex-grow: 1;
       margin: 0 !important;
+      margin-bottom: 1.5rem !important;
 
       textarea {
         outline: none !important;
         box-shadow: none !important;
+      }
+    }
+
+    table {
+      overflow: hidden;
+      border-radius: 2px;
+
+      tr {
+        background-color: initial !important;
+      }
+
+      td {
+        width: auto;
+        white-space: normal;
+        padding: 0.5rem;
+        vertical-align: top;
+      }
+
+      tr:not(:last-child) > td {
+        border-bottom: 1px solid var(--color-background-dark);
+      }
+
+      td:first-child {
+        padding-left: 0;
+      }
+      td:last-child {
+        padding-right: 0;
+      }
+
+      td:first-child {
+        white-space: nowrap;
       }
     }
 
@@ -113,7 +146,10 @@ export default function JavascriptModal(props) {
         <div className="content">
           <h3>Edit custom JavaScript</h3>
 
-          <p>Script will execute on <i>DOMContentLoaded</i>.</p>
+          <p>
+            The script will be executed on${" "}
+            <code class="hljs-string">DOMContentLoaded</code>.
+          </p>
 
           <code-input
             template="syntax-highlighted"
@@ -122,27 +158,21 @@ export default function JavascriptModal(props) {
           >
             ${initialJavascript}
           </code-input>
+
+          <p>
+            The following events are available for listening on${" "}
+            <code class="hljs-variable">window</code>:
+          </p>
+
           <table>
-            <thead>
-              <tr>
-                <th colspan="3">Available events (on <i>window</i>)</th>
-              </tr>
-            </thead>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Event details</th>
-              </tr>
-            </thead>
             <tbody>
               <tr>
-                <td>pf:image-loadstart</td>
+                <td><code class="hljs-string">pf:image-loadstart</code></td>
                 <td>Image starts loading.</td>
                 <td>reader: file reader</td>
               </tr>
               <tr>
-                <td>pf:image-loadend</td>
+                <td><code class="hljs-string">pf:image-loadend</code></td>
                 <td>Image was loaded and is ready to be shown</td>
                 <td>
                   reader: file reader<br />
@@ -150,19 +180,20 @@ export default function JavascriptModal(props) {
                 </td>
               </tr>
               <tr>
-                <td>pf:image-fadestart</td>
+                <td><code class="hljs-string">pf:image-fadestart</code></td>
                 <td>
-                  Image started fading in (not dispatched for first image)
+                  Image started fading in<br />
+                  (not dispatched for first image)
                 </td>
                 <td>image</td>
               </tr>
               <tr>
-                <td>pf:image-visible</td>
+                <td><code class="hljs-string">pf:image-visible</code></td>
                 <td>Image is shown fully</td>
                 <td>image</td>
               </tr>
               <tr>
-                <td>pf:frame-ready</td>
+                <td><code class="hljs-string">pf:frame-ready</code></td>
                 <td>Frame is ready</td>
                 <td>image: First image or null if empty frame</td>
               </tr>
