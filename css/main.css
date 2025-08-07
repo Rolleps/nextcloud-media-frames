@@ -22,7 +22,13 @@
 
 .app-photo_frames label {
   display: inline-flex;
+  align-self: flex-start;
+  user-select: none;
   align-items: center;
+
+  * {
+    cursor: pointer
+  }
 }
 
 .app-photo_frames input {
