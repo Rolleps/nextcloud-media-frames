@@ -117,13 +117,30 @@ export default function JavascriptModal(props) {
     };
   }, []);
 
+  const getHasUnsavedChanges = () => {
+    const textarea = codeInputRef.current.querySelector("textarea");
+    return textarea.value !== initialJavascript.replaceAll("\r", "");
+  };
+
   const handleClose = (event) => {
     event.preventDefault();
-
     const textarea = codeInputRef.current.querySelector("textarea");
-    const hasUnsavedChanges =
-      textarea.value !== initialJavascript.replaceAll("\r", "");
-    if (hasUnsavedChanges && !confirm("Discard unsaved changes?")) {
+
+    if (getHasUnsavedChanges() && confirm("Save changes?")) {
+      onSubmit(textarea.value);
+      return;
+    }
+
+    onCancel();
+  };
+
+  const handleCancel = (event) => {
+    event.preventDefault();
+
+    if (
+      getHasUnsavedChanges() &&
+      !confirm("You have unsaved changes, continue anyway?")
+    ) {
       return;
     }
 
@@ -144,25 +161,25 @@ export default function JavascriptModal(props) {
     >
       <div className="container">
         <div className="content">
-          <h3>Edit custom JavaScript</h3>
+          <h3>Custom JavaScript</h3>
 
           <p>
-            The script will be executed on${" "}
+            Your custom script will be executed on${" "}
             <code class="hljs-string">DOMContentLoaded</code>.
           </p>
 
           <code-input
             template="syntax-highlighted"
             language="JavaScript"
-            placeholder=""
+            placeholder="Enter your custom javascript here..."
             ref=${codeInputRef}
           >
             ${initialJavascript}
           </code-input>
 
           <p>
-            The following events are available for listening on${" "}
-            <code class="hljs-variable">window</code>:
+            <strong>Photo Frames</strong> dispatches the following events on
+            ${" "} <code class="hljs-variable">window</code>:
           </p>
 
           <table>
@@ -202,7 +219,7 @@ export default function JavascriptModal(props) {
           </table>
         </div>
         <div className="actions">
-          <button onClick=${handleClose}>Cancel</button>
+          <button onClick=${handleCancel}>Cancel</button>
           <button className="primary" onClick=${handleSubmit}>Save</button>
         </div>
       </div>
