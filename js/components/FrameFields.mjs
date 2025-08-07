@@ -82,7 +82,7 @@ const styles = {
     margin-top: 0.5rem !important;
     position: relative;
   `,
-  previewColumn: css`
+  previewAndDisplayOptions: css`
     display: flex;
     flex-direction: column;
 
@@ -367,166 +367,169 @@ export default function FrameFields(props) {
       </div>
 
       <div className=${styles.previewColumn}>
-        <div>
-          <div className=${styles.preview}>
-            <${Screen} className=${styles.screen}>
-              <${Frame}
-                showPhotoTimestamp=${data.showPhotoTimestamp}
-                showClock=${data.showClock}
-                photoSize=${data.photoSize}
-                backgroundType=${data.backgroundType}
-                backgroundColor=${data.backgroundColor}
-                image=${testImageLandscape}
-              />
-            <//>
-            <${Screen} className=${styles.screen}>
-              <${Frame}
-                showPhotoTimestamp=${data.showPhotoTimestamp}
-                showClock=${data.showClock}
-                photoSize=${data.photoSize}
-                backgroundType=${data.backgroundType}
-                backgroundColor=${data.backgroundColor}
-                image=${testImagePortrait}
-              />
-            <//>
+        <div className=${styles.previewAndDisplayOptions}>
+          <div>
+            <div className=${styles.preview}>
+              <${Screen} className=${styles.screen}>
+                <${Frame}
+                  showPhotoTimestamp=${data.showPhotoTimestamp}
+                  showClock=${data.showClock}
+                  photoSize=${data.photoSize}
+                  backgroundType=${data.backgroundType}
+                  backgroundColor=${data.backgroundColor}
+                  image=${testImageLandscape}
+                />
+              <//>
+              <${Screen} className=${styles.screen}>
+                <${Frame}
+                  showPhotoTimestamp=${data.showPhotoTimestamp}
+                  showClock=${data.showClock}
+                  photoSize=${data.photoSize}
+                  backgroundType=${data.backgroundType}
+                  backgroundColor=${data.backgroundColor}
+                  image=${testImagePortrait}
+                />
+              <//>
+            </div>
+            <p className=${`${styles.tip} text-center`}>
+              Previews are accurate to a 1280 x 800 resolution, typical for
+              tablets
+            </p>
           </div>
-          <p className=${`${styles.tip} text-center`}>
-            Previews are accurate to a 1280 x 800 resolution, typical for
-            tablets
-          </p>
+
+          <div>
+            <h3 className=${styles.fieldTitle}>Display options</h3>
+            <div className=${styles.displayOptionsColumns}>
+              <div>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="showPhotoTimestamp"
+                    value="1"
+                    checked=${data.showPhotoTimestamp}
+                    onChange=${handleInput}
+                  />
+                  <span>Show photo date</span>
+                </label>
+              </div>
+
+              <div>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="showClock"
+                    value="1"
+                    checked=${data.showClock}
+                    onChange=${handleInput}
+                  />
+                  <span>Show clock</span>
+                </label>
+              </div>
+            </div>
+            <div className=${styles.radioButtons}>
+              <${RadioButtons}
+                name="photoSize"
+                required
+                value=${data.photoSize}
+                onChange=${handleInput}
+                options=${[
+                  {
+                    value: "smart-fit",
+                    label: html`<strong>Smart fit</strong>: Attempt to fit
+                      frame, but keep at least 75% of the photo visible`,
+                  },
+                  {
+                    value: "contain",
+                    label: html`<strong>Contain</strong> the full photo within
+                      the frame`,
+                  },
+                  {
+                    value: "cover",
+                    label: html`<strong>Cover</strong> the full frame, scaling
+                      proportionally`,
+                  },
+                  {
+                    value: "stretch",
+                    label: html`<strong>Stretch</strong> photo to the edges of
+                      the frame`,
+                  },
+                ]}
+              />
+            </div>
+
+            ${["smart-fit", "contain"].includes(data.photoSize)
+              ? html`
+                  <p>
+                    Fill uncovered areas with${" "}
+                    <span className=${styles.backgroundInputs}>
+                      <select
+                        name="backgroundType"
+                        required
+                        value="${data.backgroundType}"
+                        onChange=${handleInput}
+                      >
+                        <option value="aura">aura</option>
+                        <option value="color">a background color</option>
+                      </select>
+                      ${data.backgroundType === "color"
+                        ? html`
+                            ${`: `}
+                            <input
+                              name="backgroundColor"
+                              value=${data.backgroundColor}
+                              className=${styles.colorInput}
+                              onChange=${handleInput}
+                              type="color"
+                            />
+                          `
+                        : html`
+                            <input
+                              type="hidden"
+                              name="backgroundColor"
+                              value=${data.backgroundColor}
+                            />
+                          `}
+                    </span>
+                  </p>
+                `
+              : html`
+                  <input
+                    type="hidden"
+                    name="backgroundType"
+                    value=${data.backgroundType}
+                  />
+                  <input
+                    type="hidden"
+                    name="backgroundColor"
+                    value=${data.backgroundColor}
+                  />
+                `}
+          </div>
         </div>
 
         <div>
-          <h3 className=${styles.fieldTitle}>Display options</h3>
-          <div className=${styles.displayOptionsColumns}>
-            <div>
-              <label>
-                <input
-                  type="checkbox"
-                  name="showPhotoTimestamp"
-                  value="1"
-                  checked=${data.showPhotoTimestamp}
-                  onChange=${handleInput}
-                />
-                <span>Show photo date</span>
-              </label>
-            </div>
+          <h3 className=${styles.fieldTitle}>
+            Advanced options (for programmers)
+          </h3>
 
-            <div>
-              <label>
-                <input
-                  type="checkbox"
-                  name="showClock"
-                  value="1"
-                  checked=${data.showClock}
-                  onChange=${handleInput}
-                />
-                <span>Show clock</span>
-              </label>
-            </div>
-          </div>
-          <div className=${styles.radioButtons}>
-            <${RadioButtons}
-              name="photoSize"
-              required
-              value=${data.photoSize}
-              onChange=${handleInput}
-              options=${[
-                {
-                  value: "smart-fit",
-                  label: html`<strong>Smart fit</strong>: Attempt to fit frame,
-                    but keep at least 75% of the photo visible`,
-                },
-                {
-                  value: "contain",
-                  label: html`<strong>Contain</strong> the full photo within the
-                    frame`,
-                },
-                {
-                  value: "cover",
-                  label: html`<strong>Cover</strong> the full frame, scaling
-                    proportionally`,
-                },
-                {
-                  value: "stretch",
-                  label: html`<strong>Stretch</strong> photo to the edges of the
-                    frame`,
-                },
-              ]}
-            />
-          </div>
-
-          ${["smart-fit", "contain"].includes(data.photoSize)
-            ? html`
-                <p>
-                  Fill uncovered areas with${" "}
-                  <span className=${styles.backgroundInputs}>
-                    <select
-                      name="backgroundType"
-                      required
-                      value="${data.backgroundType}"
-                      onChange=${handleInput}
-                    >
-                      <option value="aura">aura</option>
-                      <option value="color">a background color</option>
-                    </select>
-                    ${data.backgroundType === "color"
-                      ? html`
-                          ${`: `}
-                          <input
-                            name="backgroundColor"
-                            value=${data.backgroundColor}
-                            className=${styles.colorInput}
-                            onChange=${handleInput}
-                            type="color"
-                          />
-                        `
-                      : html`
-                          <input
-                            type="hidden"
-                            name="backgroundColor"
-                            value=${data.backgroundColor}
-                          />
-                        `}
-                  </span>
-                </p>
-              `
-            : html`
-                <input
-                  type="hidden"
-                  name="backgroundType"
-                  value=${data.backgroundType}
-                />
-                <input
-                  type="hidden"
-                  name="backgroundColor"
-                  value=${data.backgroundColor}
-                />
-              `}
-          <div>
-            <h3 className=${styles.fieldTitle}>
-              Advanced options (for programmers)
-            </h3>
-
-            <input type="hidden" name="javascript" value=${data.javascript} />
-            <button
-              onClick=${(event) => {
-                setOpenedModal("javascript");
-                event.preventDefault();
-              }}
-            >
-              Custom JavaScript
-            </button>
-          </div>
+          <input type="hidden" name="javascript" value=${data.javascript} />
+          <button
+            onClick=${(event) => {
+              setOpenedModal("javascript");
+              event.preventDefault();
+            }}
+          >
+            Custom JavaScript
+          </button>
         </div>
       </div>
-    </div>
 
-    ${openedModal === "javascript" &&
-    html`<${JavascriptModal}
-      javascript=${data.javascript}
-      onCancel=${() => setOpenedModal(null)}
-      onSubmit=${handleJavascriptSubmitted}
-    />`}
+      ${openedModal === "javascript" &&
+      html`<${JavascriptModal}
+        javascript=${data.javascript}
+        onCancel=${() => setOpenedModal(null)}
+        onSubmit=${handleJavascriptSubmitted}
+      />`}
+    </div>
   `;
 }
