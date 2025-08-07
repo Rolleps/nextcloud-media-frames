@@ -154,6 +154,7 @@ export default function JavascriptModal(props) {
           <code-input
             template="syntax-highlighted"
             language="JavaScript"
+            placeholder=""
             ref=${codeInputRef}
           >
             ${initialJavascript}
