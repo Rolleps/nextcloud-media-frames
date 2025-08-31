@@ -6,6 +6,7 @@ import {
 import { injectGlobal } from "../vendor/emotion-css.min.mjs";
 import Frame from "../components/Frame.mjs";
 import EmptyAlbum from "../components/EmptyAlbum.mjs";
+import PhotoCouldNotBeLoaded from "../components/PhotoCouldNotBeLoaded.mjs";
 import dispatch from "../utils/dispatch.mjs";
 
 const rotationUnitRefreshInterval = {
@@ -34,6 +35,7 @@ export default function FramePage(props) {
   const imageUrl = location.href + "/image";
   const [images, setImages] = useState([]);
   const [albumIsEmpty, setAlbumIsEmpty] = useState(false);
+  const [error, setError] = useState(false);
 
   const currentImage = images.at(-1);
   useEffect(() => {
@@ -67,6 +69,14 @@ export default function FramePage(props) {
         if (timeout) clearTimeout(timeout);
         setAlbumIsEmpty(true);
         dispatch("pf:frame-ready", { image: null });
+        return;
+      }
+
+      // Only continue if the response is ok
+      if (!imageResponse.ok) {
+        // If it's the very first image, show an error screen
+        // Otherwise the frame will continously retry - due to the timeout having already been set
+        if (!currentImage) setError(true);
         return;
       }
 
@@ -109,6 +119,10 @@ export default function FramePage(props) {
 
   if (albumIsEmpty) {
     return html` <${EmptyAlbum} /> `;
+  }
+
+  if (error) {
+    return html` <${PhotoCouldNotBeLoaded} /> `;
   }
 
   return html`
