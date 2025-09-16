@@ -206,7 +206,7 @@ class FrameMapper extends QBMapper
       return null;
     }
 
-    $metadata = $this->metadataManager->getMetadata($row['file_id']);
+    $metadata = $this->metadataManager->getMetadata($row['file_id'], true);
     return $this->mapRowToFrameFile($row, $metadata);
   }
 
@@ -278,7 +278,7 @@ class FrameMapper extends QBMapper
   private function mapRowToFrameFile(array $row, IFilesMetadata|null $metadata): FrameFile
   {
     $capturedAt = null;
-    if ($metadata) {
+    if ($metadata?->hasKey('photos-original_date_time')) {
       $capturedAt = $metadata->getInt("photos-original_date_time");
     }
 
