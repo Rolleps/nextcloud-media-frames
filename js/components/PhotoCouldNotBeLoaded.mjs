@@ -52,7 +52,7 @@ export default function PhotoCouldNotBeLoaded() {
   return html`
     <div className=${styles.container}>
       <div className=${styles.message}>
-        <h1 className=${styles.heading}>Something when wrong</h1>
+        <h1 className=${styles.heading}>Something went wrong</h1>
         <p className=${styles.info}>An error occured when loading the photo.</p>
         <button onClick=${() => location.reload()} className=${styles.button}>
           Reload
