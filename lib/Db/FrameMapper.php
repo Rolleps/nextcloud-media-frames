@@ -6,11 +6,9 @@ namespace OCA\PhotoFrames\Db;
 
 use DateTime;
 use OCP\AppFramework\Db\QBMapper;
-use OCP\Calendar\IMetadataProvider;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Files\IMimeTypeLoader;
 use OCP\FilesMetadata\IFilesMetadataManager;
-use OCP\FilesMetadata\Model\IFilesMetadata;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\Security\ISecureRandom;
@@ -182,10 +180,11 @@ class FrameMapper extends QBMapper
     $fileIds = array_map(function ($row) {
       return $row['file_id'];
     }, $rows);
-    $metadataResults = $this->metadataManager->getMetadataForFiles($fileIds);
+
+    $metadatas = $this->getMetadataForImages($fileIds);
 
     foreach ($rows as $row) {
-      $metadata = $metadataResults[$row['file_id']];
+      $metadata = $metadatas[$row['file_id']];
       $frameFiles[] = $this->mapRowToFrameFile($row, $metadata);
     }
 
@@ -206,7 +205,7 @@ class FrameMapper extends QBMapper
       return null;
     }
 
-    $metadata = $this->metadataManager->getMetadata($row['file_id'], true);
+    $metadata = $this->getMetadataForImages([$row['file_id']])[$row['file_id']];
     return $this->mapRowToFrameFile($row, $metadata);
   }
 
@@ -275,19 +274,70 @@ class FrameMapper extends QBMapper
     $this->connection->commit();
   }
 
-  private function mapRowToFrameFile(array $row, IFilesMetadata|null $metadata): FrameFile
+  private function mapRowToFrameFile(array $row, array $metadata): FrameFile
   {
-    $capturedAt = null;
-    if ($metadata?->hasKey('photos-original_date_time')) {
-      $capturedAt = $metadata->getInt("photos-original_date_time");
-    }
-
     return new FrameFile(
       $row['file_id'],
       $row['owner'],
       $this->mimeTypeLoader->getMimetypeById((int) $row['mimetype']),
       $row['added'],
-      $capturedAt ?? $row['mtime'] ?? 0,
+      $metadata['capturedAt'] ?? $row['mtime'] ?? 0,
     );
+  }
+
+  private function getMetadataForImages(array $fileIds)
+  {
+    $ncDatas = $this->metadataManager->getMetadataForFiles($fileIds);
+    $memoriesDatas = $this->getMemoriesDataForImages($fileIds);
+
+    $result = [];
+    foreach ($fileIds as $id) {
+      $capturedAt = null;
+
+      $ncData = $ncDatas[$id] ?? null;
+      $memoriesData = $memoriesDatas[$id] ?? null;
+
+      if (isset($memoriesData?->DateTimeEpoch)) {
+        $capturedAt = $memoriesData->DateTimeEpoch;
+      } else if ($ncData?->hasKey('photos-original_date_time')) {
+        $capturedAt = $ncData->getInt("photos-original_date_time");
+      }
+
+      $result[$id] = [
+        'capturedAt' => $capturedAt,
+      ];
+    }
+
+    return $result;
+  }
+
+  private function getMemoriesDataForImages(array $fileIds)
+  {
+    $result = [];
+    $query = $this->connection->getQueryBuilder();
+    $tablePrefix = $this->config->getSystemValue('dbtableprefix', 'oc_');
+    $schema = $this->connection->createSchema();
+
+    if (!$schema->hasTable("${tablePrefix}memories")) {
+      return $result;
+    }
+
+    $table = $schema->getTable("${tablePrefix}memories");
+    if (!$table->hasColumn('fileid')) {
+      return $result;
+    }
+    if (!$table->hasColumn('exif')) {
+      return $result;
+    }
+
+    $query->select("fileid", "exif")
+      ->from("memories")
+      ->where($query->expr()->in('fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)));
+    $rows = $query->executeQuery()->fetchAll();
+    foreach ($rows as $row) {
+      $result[$row['fileid']] = json_decode($row['exif']);
+    }
+
+    return $result;
   }
 }
