@@ -24,6 +24,23 @@ injectGlobal`
   }
 `;
 
+async function responseToBlobUrl(imageResponse) {
+  // Read the image to a DataURL using the FileReader API
+  // This is to prevent the browser from caching the image URL (which is the same for all images)
+  const blob = await imageResponse.blob();
+
+  const reader = new FileReader();
+  const result = await new Promise((res, rej) => {
+    dispatch("pf:image-loadstart", { reader });
+
+    reader.onloadend = () => res(reader.result);
+    reader.onerror = () => rej();
+    reader.readAsDataURL(blob);
+  });
+  dispatch("pf:image-loadend", { reader });
+  return result;
+}
+
 export default function FramePage(props) {
   const {
     showPhotoTimestamp,
@@ -74,43 +91,39 @@ export default function FramePage(props) {
 
       // Only continue if the response is ok
       if (!imageResponse.ok) {
-        // If it's the very first image, show an error screen
-        // Otherwise the frame will continously retry - due to the timeout having already been set
-        if (!currentImage) setError(true);
+        if (!currentImage) {
+          setError(true);
+          clearTimeout(timeout);
+        }
         return;
       }
 
-      // Read the image to a DataURL using the FileReader API
-      // This is to prevent the browser from caching the image URL (which is the same for all images)
-      const blob = await imageResponse.blob();
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const rotationUnit = imageResponse.headers.get("X-Frame-Rotation-Unit");
-        const nextImage = {
-          url: reader.result,
-          expiresAt: new Date(imageResponse.headers.get("expires")),
-          timestamp: new Date(
-            imageResponse.headers.get("X-Photo-Timestamp") * 1000
-          ),
-          refreshInterval: rotationUnitRefreshInterval[rotationUnit],
-        };
-        setImages([currentImage, nextImage].filter(Boolean));
-        dispatch("pf:image-loadend", { reader, image: nextImage });
+      const blobUrl = await responseToBlobUrl(imageResponse);
 
-        // Remove previous image when the new image has faded in
-        if (currentImage) {
-          dispatch("pf:image-fadestart", { image: nextImage });
-          setTimeout(() => {
-            setImages([nextImage]);
-            dispatch("pf:image-visible", { image: nextImage });
-          }, 2000);
-        } else {
-          dispatch("pf:image-visible", { image: nextImage });
-          dispatch("pf:frame-ready", { image: nextImage });
-        }
+      // Prepare next image
+      const rotationUnit = imageResponse.headers.get("X-Frame-Rotation-Unit");
+      const nextImage = {
+        url: blobUrl,
+        expiresAt: new Date(imageResponse.headers.get("expires")),
+        timestamp: new Date(
+          imageResponse.headers.get("X-Photo-Timestamp") * 1000
+        ),
+        refreshInterval: rotationUnitRefreshInterval[rotationUnit],
       };
-      reader.readAsDataURL(blob);
-      dispatch("pf:image-loadstart", { reader });
+
+      setImages([currentImage, nextImage].filter(Boolean));
+
+      // Remove previous image when the new image has faded in
+      if (currentImage) {
+        dispatch("pf:image-fadestart", { image: nextImage });
+        setTimeout(() => {
+          setImages([nextImage]);
+          dispatch("pf:image-visible", { image: nextImage });
+        }, 2000);
+      } else {
+        dispatch("pf:image-visible", { image: nextImage });
+        dispatch("pf:frame-ready", { image: nextImage });
+      }
     };
 
     timeout = setTimeout(updateImage, currentImage?.refreshInterval || 0);
