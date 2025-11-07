@@ -1,6 +1,7 @@
 import {
   html,
   useEffect,
+  useRef,
   useState,
 } from "../vendor/htm-preact-standalone.min.mjs";
 import { injectGlobal } from "../vendor/emotion-css.min.mjs";
@@ -8,6 +9,7 @@ import Frame from "../components/Frame.mjs";
 import EmptyAlbum from "../components/EmptyAlbum.mjs";
 import PhotoCouldNotBeLoaded from "../components/PhotoCouldNotBeLoaded.mjs";
 import dispatch from "../utils/dispatch.mjs";
+import timedFetch from "../utils/timedFetch.mjs";
 
 const rotationUnitRefreshInterval = {
   day: 1000 * 60, // One minute
@@ -30,16 +32,31 @@ async function responseToBlobUrl(imageResponse) {
   const blob = await imageResponse.blob();
 
   const reader = new FileReader();
-  const result = await new Promise((res, rej) => {
-    dispatch("pf:image-loadstart", { reader });
+  dispatch("pf:image-loadstart", { reader });
 
+  const result = await new Promise((res, rej) => {
     reader.onloadend = () => res(reader.result);
     reader.onerror = () => rej();
     reader.readAsDataURL(blob);
   });
+
   dispatch("pf:image-loadend", { reader });
   return result;
 }
+
+let nextTimeoutAt = Date.now();
+const getNextTimeoutDelay = (currentImage) => {
+  if (!currentImage) return 0;
+
+  while (nextTimeoutAt <= Date.now()) {
+    nextTimeoutAt += currentImage.refreshInterval;
+  }
+
+  return nextTimeoutAt - Date.now();
+};
+
+class AlbumEmptyError extends Error {}
+class UpdateImageError extends Error {}
 
 export default function FramePage(props) {
   const {
@@ -53,50 +70,30 @@ export default function FramePage(props) {
   const [images, setImages] = useState([]);
   const [albumIsEmpty, setAlbumIsEmpty] = useState(false);
   const [error, setError] = useState(false);
+  const imageRef = useRef(null);
 
-  const currentImage = images.at(-1);
   useEffect(() => {
-    let timeout;
+    let loopTimeout;
 
     const updateImage = async () => {
-      const now = new Date();
-
-      // If we already have an image, set a timeout up front,
-      // and return early unless a new image is available
-      if (currentImage) {
-        timeout = setTimeout(updateImage, currentImage.refreshInterval);
-
-        // Return early unless we've exceeded the image's expiry
-        if (currentImage.expiresAt > now) return;
-
+      if (imageRef.current) {
         // Fetch the newest image's expiry, continue if the expiry is
         // not the same as the current image (e.g. it really IS a new image)
-        const headResponse = await fetch(imageUrl, {
+        const headResponse = await timedFetch(10000, imageUrl, {
           method: "HEAD",
           cache: "reload",
         });
         const nextExpiresAt = new Date(headResponse.headers.get("expires"));
-        if (currentImage.expiresAt >= nextExpiresAt) return;
+        if (imageRef.current.expiresAt >= nextExpiresAt) return;
       }
 
-      const imageResponse = await fetch(imageUrl);
+      const imageResponse = await timedFetch(10000, imageUrl);
 
       // If image returns a 404, it means the albums has no images
-      if (imageResponse.status === 404) {
-        if (timeout) clearTimeout(timeout);
-        setAlbumIsEmpty(true);
-        dispatch("pf:frame-ready", { image: null });
-        return;
-      }
+      if (imageResponse.status === 404) throw new AlbumEmptyError();
 
       // Only continue if the response is ok
-      if (!imageResponse.ok) {
-        if (!currentImage) {
-          setError(true);
-          clearTimeout(timeout);
-        }
-        return;
-      }
+      if (!imageResponse.ok) throw new UpdateImageError();
 
       const blobUrl = await responseToBlobUrl(imageResponse);
 
@@ -110,25 +107,53 @@ export default function FramePage(props) {
         ),
         refreshInterval: rotationUnitRefreshInterval[rotationUnit],
       };
+      imageRef.current = nextImage;
 
-      setImages([currentImage, nextImage].filter(Boolean));
+      setImages((images) => [images.at(0), nextImage].filter(Boolean));
 
       // Remove previous image when the new image has faded in
-      if (currentImage) {
+      if (imageRef.current) {
         dispatch("pf:image-fadestart", { image: nextImage });
-        setTimeout(() => {
-          setImages([nextImage]);
-          dispatch("pf:image-visible", { image: nextImage });
-        }, 2000);
+        await new Promise((resolve) => {
+          setTimeout(() => {
+            setImages([nextImage]);
+            dispatch("pf:image-visible", { image: nextImage });
+            resolve();
+          }, 2000);
+        });
       } else {
         dispatch("pf:image-visible", { image: nextImage });
         dispatch("pf:frame-ready", { image: nextImage });
       }
     };
 
-    timeout = setTimeout(updateImage, currentImage?.refreshInterval || 0);
-    return () => clearTimeout(timeout);
-  }, [currentImage]);
+    const loop = async function () {
+      try {
+        // Update image if expired
+        if (Date.now() > imageRef.current.expiresAt) await updateImage();
+      } finally {
+        // Always schedule new loop
+        loopTimeout = setTimeout(loop, getNextTimeoutDelay(imageRef.current));
+      }
+    };
+
+    // Do initial image update
+    updateImage()
+      .then(() => {
+        // If successful, start update loop
+        loopTimeout = setTimeout(loop, getNextTimeoutDelay());
+      })
+      .catch((e) => {
+        // If not successful, show empty or error state
+        if (e instanceof AlbumEmptyError) {
+          setAlbumIsEmpty(true);
+          dispatch("pf:frame-ready", { image: null });
+        }
+        setError(true);
+      });
+
+    return () => clearTimeout(loopTimeout);
+  }, []);
 
   if (albumIsEmpty) {
     return html` <${EmptyAlbum} /> `;
