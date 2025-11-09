@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\PhotoFrames\Db;
 
 use DateTime;
+use Exception;
 use OCP\AppFramework\Db\QBMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Files\IMimeTypeLoader;
@@ -315,25 +316,20 @@ class FrameMapper extends QBMapper
   {
     $result = [];
     $query = $this->connection->getQueryBuilder();
-    $tablePrefix = $this->config->getSystemValue('dbtableprefix', 'oc_');
-    $schema = $this->connection->createSchema();
 
-    if (!$schema->hasTable("${tablePrefix}memories")) {
+    if (!$this->connection->tableExists("memories")) {
       return $result;
     }
 
-    $table = $schema->getTable("${tablePrefix}memories");
-    if (!$table->hasColumn('fileid')) {
-      return $result;
-    }
-    if (!$table->hasColumn('exif')) {
+    try {
+      $query->select("fileid", "exif")
+        ->from("memories")
+        ->where($query->expr()->in('fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)));
+      $rows = $query->executeQuery()->fetchAll();
+    } catch (Exception $error) {
       return $result;
     }
 
-    $query->select("fileid", "exif")
-      ->from("memories")
-      ->where($query->expr()->in('fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)));
-    $rows = $query->executeQuery()->fetchAll();
     foreach ($rows as $row) {
       $result[$row['fileid']] = json_decode($row['exif']);
     }
