@@ -295,15 +295,20 @@ class PageController extends Controller
 
       $node = $service->getFrameFileNode($frameFile);
 
-      $preview = $this->preview->getPreview($node, 2560, height: 2560);
-
       $headers = [
         'X-Photo-Timestamp' => $frameFile->getCapturedAtTimestamp(),
         'X-Frame-Rotation-Unit' => $frame->getRotationUnit(),
         'Expires' => $frameFile->getExpiresHeader(),
         'Content-Type' => $frameFile->getMimeType(),
       ];
-      return new FileDisplayResponse($preview, 200, $headers);
+
+      $method = $this->request->getMethod();
+      if ($method === 'HEAD') {
+        return new Response(200, $headers);
+      } else {
+        $preview = $this->preview->getPreview($node, 2560, height: 2560);
+        return new FileDisplayResponse($preview, 200, $headers);
+      }
     } catch (Exception $error) {
       return $this->errorPage($error);
     }
