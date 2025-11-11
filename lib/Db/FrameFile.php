@@ -14,14 +14,16 @@ class FrameFile implements \JsonSerializable
   public int $addedAtTimestamp;
   public int $capturedAtTimestamp;
   public \DateTime $expiresAt;
+  public ?string $place;
 
-  public function __construct(int $fileId, string $userUid, string $mimeType, int $addedAtTimestamp, int $capturedAtTimestamp)
+  public function __construct(int $fileId, string $userUid, string $mimeType, int $addedAtTimestamp, int $capturedAtTimestamp, ?string $place)
   {
     $this->fileId = $fileId;
     $this->userUid = $userUid;
     $this->mimeType = $mimeType;
     $this->addedAtTimestamp = $addedAtTimestamp;
     $this->capturedAtTimestamp = $capturedAtTimestamp;
+    $this->place = $place;
   }
 
   public function getFileId()
@@ -47,6 +49,11 @@ class FrameFile implements \JsonSerializable
   public function getCapturedAtTimestamp()
   {
     return $this->capturedAtTimestamp;
+  }
+
+  public function getPlace()
+  {
+    return $this->place;
   }
 
   public function setExpiresAt(\DateTime $expiresAt)

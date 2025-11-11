@@ -283,6 +283,7 @@ class FrameMapper extends QBMapper
       $this->mimeTypeLoader->getMimetypeById((int) $row['mimetype']),
       $row['added'],
       $metadata['capturedAt'] ?? $row['mtime'] ?? 0,
+      $metadata['place'],
     );
   }
 
@@ -294,18 +295,28 @@ class FrameMapper extends QBMapper
     $result = [];
     foreach ($fileIds as $id) {
       $capturedAt = null;
+      $place = null;
 
       $ncData = $ncDatas[$id] ?? null;
       $memoriesData = $memoriesDatas[$id] ?? null;
 
-      if (isset($memoriesData?->DateTimeEpoch)) {
-        $capturedAt = $memoriesData->DateTimeEpoch;
+      // Prefer captured date from memories
+      if (isset($memoriesData['exif']['DateTimeEpoch'])) {
+        $capturedAt = $memoriesData['exif']['DateTimeEpoch'];
       } else if ($ncData?->hasKey('photos-original_date_time')) {
         $capturedAt = $ncData->getInt("photos-original_date_time");
       }
 
+      // Prefer place from photos
+      if ($ncData?->hasKey('photos-place')) {
+        $place = $ncData->getString("photos-place");
+      } else if (isset($memoriesData['place']['name'])) {
+        $place = $memoriesData['place']['name'];
+      }
+
       $result[$id] = [
         'capturedAt' => $capturedAt,
+        'place' => $place,
       ];
     }
 
@@ -315,23 +326,50 @@ class FrameMapper extends QBMapper
   private function getMemoriesDataForImages(array $fileIds)
   {
     $result = [];
-    $query = $this->connection->getQueryBuilder();
 
     if (!$this->connection->tableExists("memories")) {
       return $result;
     }
 
+    // Exif data
     try {
+      $query = $this->connection->getQueryBuilder();
       $query->select("fileid", "exif")
         ->from("memories")
         ->where($query->expr()->in('fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)));
       $rows = $query->executeQuery()->fetchAll();
+
+      foreach ($rows as $row) {
+        $resultRow = $result[$row['fileid']] ?? [];
+        $resultRow['exif'] = json_decode($row['exif'], true);
+        $result[$row['fileid']] = $resultRow;
+      }
     } catch (Exception $error) {
-      return $result;
     }
 
-    foreach ($rows as $row) {
-      $result[$row['fileid']] = json_decode($row['exif']);
+    // Places data
+    if (
+      !$this->connection->tableExists("memories_places") ||
+      !$this->connection->tableExists('memories_planet')
+    ) {
+      return $result;
+    }
+    $query = $this->connection->getQueryBuilder();
+    try {
+      $query->select("memories.fileid", "planet.name", "planet.other_names")
+        ->from("memories", 'memories')
+        ->innerJoin('memories', 'memories_places', 'places', $query->expr()->eq('memories.fileid', 'places.fileid'))
+        ->innerJoin('places', 'memories_planet', 'planet', $query->expr()->eq('places.osm_id', 'planet.osm_id'))
+        ->andWhere($query->expr()->in('memories.fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)))
+        ->andWhere($query->expr()->eq('places.mark', $query->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+      $rows = $query->executeQuery()->fetchAll();
+
+      foreach ($rows as $row) {
+        $resultRow = $result[$row['fileid']] ?? [];
+        $resultRow['place'] = $row;
+        $result[$row['fileid']] = $resultRow;
+      }
+    } catch (Exception $error) {
     }
 
     return $result;

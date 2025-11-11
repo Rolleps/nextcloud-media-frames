@@ -298,6 +298,7 @@ class PageController extends Controller
       $headers = [
         'X-Photo-Timestamp' => $frameFile->getCapturedAtTimestamp(),
         'X-Frame-Rotation-Unit' => $frame->getRotationUnit(),
+        'X-Photo-Place' => rawurlencode($frameFile->getPlace() ?? ''),
         'Expires' => $frameFile->getExpiresHeader(),
         'Content-Type' => $frameFile->getMimeType(),
       ];

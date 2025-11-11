@@ -102,6 +102,7 @@ export default function FramePage(props) {
       const nextImage = {
         url: blobUrl,
         expiresAt: new Date(imageResponse.headers.get("expires")),
+        place: decodeURIComponent(imageResponse.headers.get("X-Photo-Place")),
         timestamp: new Date(
           imageResponse.headers.get("X-Photo-Timestamp") * 1000
         ),
