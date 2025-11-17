@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <link rel="stylesheet" href="<?= $_['appPath'] ?>/css/fonts.css" />
   <style>
     :root {
       background-color:
@@ -9,6 +10,7 @@
       ;
     }
   </style>
+
   <script nonce="<?= $_['cspNonce']; ?>">
     window.appPath = "<?= $_['appPath'] ?>"
   </script>
