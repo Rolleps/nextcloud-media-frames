@@ -13,7 +13,7 @@ const styles = {
   `,
   message: css`
     border-radius: 0.5rem;
-    font-family: sans-serif;
+    font-family: "Noto Sans";
     margin: 1rem 1rem;
     padding: 2.2rem 3rem;
     display: flex;
