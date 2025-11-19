@@ -445,6 +445,13 @@ export default function FrameFields(props) {
                 </label>
               </div>
             </div>
+            ${data.showPhotoPlace &&
+            html`
+              <div className=${styles.tip}>
+                Photo place is sourced from Nextcloud Photos or Memories. If not
+                available, nothing will be shown.
+              </div>
+            `}
             <div className=${styles.radioButtons}>
               <${RadioButtons}
                 name="photoSize"
