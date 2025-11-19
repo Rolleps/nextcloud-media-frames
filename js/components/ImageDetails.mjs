@@ -27,7 +27,7 @@ const styles = {
     margin-right: 0.04em;
     margin-left: 0.08em;
     padding-bottom: 0.12em;
-    border-bottom: 2px solid white;
+    border-bottom: 0.075em solid white;
   `,
   month: css`
     font-size: 1.6em;
