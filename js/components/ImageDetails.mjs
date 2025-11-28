@@ -5,12 +5,16 @@ const styles = {
   container: css`
     display: flex;
     flex-direction: row;
-    align-items: last baseline;
     gap: 1.8em;
     filter: drop-shadow(-1px -1px 2px rgba(0, 0, 0, 0.2))
       drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.2))
       drop-shadow(-1px 1px 2px rgba(0, 0, 0, 0.2))
       drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.2));
+
+    align-items: end;
+    @supports (align-items: last baseline) {
+      align-items: last baseline;
+    }
   `,
   detail: css`
     line-height: 1;
