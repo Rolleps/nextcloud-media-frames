@@ -99,9 +99,13 @@ class PageController extends Controller
 
     try {
       $uid = $this->currentUser->getUID();
-      return $this->renderPage('IndexPage', [
+      $response = $this->renderPage('IndexPage', [
         'frames' => $this->frameMapper->getAllByUser($uid)
       ]);
+
+      // Make index page iframes work
+      $response->getContentSecurityPolicy()->addAllowedFrameDomain($this->request->getServerHost());
+      return $response;
     } catch (Exception $error) {
       return $this->errorPage($error);
     }
@@ -257,7 +261,7 @@ class PageController extends Controller
     }
 
     try {
-      return $this->renderPage(
+      $response = $this->renderPage(
         'FramePage',
         [
           'showPhotoTimestamp' => $frame->getShowPhotoTimestamp(),
@@ -271,6 +275,10 @@ class PageController extends Controller
         $frame->getBackgroundType() === 'color' ? $frame->getBackgroundColor() : '#000',
         $frame->getJavascript(),
       );
+
+      // Allow embedding photo frames
+      $response->getContentSecurityPolicy()->addAllowedFrameAncestorDomain('*');
+      return $response;
     } catch (Exception $error) {
       return $this->errorPage($error);
     }
@@ -320,7 +328,7 @@ class PageController extends Controller
 
   private function renderPage($name, $props, $blank = false, $backgroundColor = '#000', $javascript = ''): Response
   {
-    $response = new TemplateResponse(
+    return new TemplateResponse(
       appName: Application::APP_ID,
       templateName: $blank ? "blank" : 'page',
       params: [
@@ -332,12 +340,6 @@ class PageController extends Controller
       ],
       renderAs: $blank ? TemplateResponse::RENDER_AS_BLANK : TemplateResponse::RENDER_AS_USER,
     );
-
-    $csp = new ContentSecurityPolicy();
-    $csp->addAllowedFrameDomain($this->request->getServerHost());
-    $response->setContentSecurityPolicy($csp);
-
-    return $response;
   }
 
   private function errorPage($error): Response
