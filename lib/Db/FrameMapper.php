@@ -31,6 +31,8 @@ class FrameMapper extends QBMapper
   public const ROTATION_UNIT_DAY = 'day';
   public const ROTATION_UNIT_MINUTE = 'minute';
 
+  private const CHUNK_SIZE = 500;
+
   private ISecureRandom $random;
   private IDBConnection $connection;
   private IMimeTypeLoader $mimeTypeLoader;
@@ -291,7 +293,10 @@ class FrameMapper extends QBMapper
 
   private function getMetadataForImages(array $fileIds)
   {
-    $ncDatas = $this->metadataManager->getMetadataForFiles($fileIds);
+    $ncDatas = [];
+    foreach (array_chunk($fileIds, self::CHUNK_SIZE) as $fileIdsChunk) {
+      $ncDatas += $this->metadataManager->getMetadataForFiles($fileIdsChunk);
+    }
     $memoriesDatas = $this->getMemoriesDataForImages($fileIds);
 
     $result = [];
@@ -335,16 +340,18 @@ class FrameMapper extends QBMapper
 
     // Exif data
     try {
-      $query = $this->connection->getQueryBuilder();
-      $query->select("fileid", "exif")
-        ->from("memories")
-        ->where($query->expr()->in('fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)));
-      $rows = $query->executeQuery()->fetchAll();
+      foreach (array_chunk($fileIds, self::CHUNK_SIZE) as $fileIdsChunk) {
+        $query = $this->connection->getQueryBuilder();
+        $query->select("fileid", "exif")
+          ->from("memories")
+          ->where($query->expr()->in('fileid', $query->createNamedParameter($fileIdsChunk, IQueryBuilder::PARAM_INT_ARRAY)));
+        $rows = $query->executeQuery()->fetchAll();
 
-      foreach ($rows as $row) {
-        $resultRow = $result[$row['fileid']] ?? [];
-        $resultRow['exif'] = json_decode($row['exif'], true);
-        $result[$row['fileid']] = $resultRow;
+        foreach ($rows as $row) {
+          $resultRow = $result[$row['fileid']] ?? [];
+          $resultRow['exif'] = json_decode($row['exif'], true);
+          $result[$row['fileid']] = $resultRow;
+        }
       }
     } catch (Exception $error) {
     }
@@ -358,18 +365,19 @@ class FrameMapper extends QBMapper
     }
     $query = $this->connection->getQueryBuilder();
     try {
-      $query->select("memories.fileid", "planet.name", "planet.other_names")
-        ->from("memories", 'memories')
-        ->innerJoin('memories', 'memories_places', 'places', $query->expr()->eq('memories.fileid', 'places.fileid'))
-        ->innerJoin('places', 'memories_planet', 'planet', $query->expr()->eq('places.osm_id', 'planet.osm_id'))
-        ->andWhere($query->expr()->in('memories.fileid', $query->createNamedParameter($fileIds, IQueryBuilder::PARAM_INT_ARRAY)))
-        ->andWhere($query->expr()->eq('places.mark', $query->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-      $rows = $query->executeQuery()->fetchAll();
-
-      foreach ($rows as $row) {
-        $resultRow = $result[$row['fileid']] ?? [];
-        $resultRow['place'] = $row;
-        $result[$row['fileid']] = $resultRow;
+      foreach (array_chunk($fileIds, self::CHUNK_SIZE) as $fileIdsChunk) {
+        $query->select("memories.fileid", "planet.name", "planet.other_names")
+          ->from("memories", 'memories')
+          ->innerJoin('memories', 'memories_places', 'places', $query->expr()->eq('memories.fileid', 'places.fileid'))
+          ->innerJoin('places', 'memories_planet', 'planet', $query->expr()->eq('places.osm_id', 'planet.osm_id'))
+          ->andWhere($query->expr()->in('memories.fileid', $query->createNamedParameter($fileIdsChunk, IQueryBuilder::PARAM_INT_ARRAY)))
+          ->andWhere($query->expr()->eq('places.mark', $query->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+        $rows = $query->executeQuery()->fetchAll();
+        foreach ($rows as $row) {
+          $resultRow = $result[$row['fileid']] ?? [];
+          $resultRow['place'] = $row;
+          $result[$row['fileid']] = $resultRow;
+        }
       }
     } catch (Exception $error) {
     }
