@@ -43,8 +43,8 @@ class Version010000Date20241220230730 extends SimpleMigrationStep
       $table->addColumn('share_token', Types::STRING, ['notnull' => true, 'length' => 64]);
       $table->addColumn('selection_method', Types::STRING, ['notnull' => true, 'length' => 50]);
       $table->addColumn('entry_lifetime', Types::STRING, ['notnull' => true, 'length' => 50]);
-      $table->addColumn('start_day_at', Types::TIME, ['notnull' => true, 'length' => 50]);
-      $table->addColumn('end_day_at', Types::TIME, ['notnull' => true, 'length' => 50]);
+      $table->addColumn('start_day_at', Types::TIME, ['notnull' => true]);
+      $table->addColumn('end_day_at', Types::TIME, ['notnull' => true]);
       $table->addColumn('created_at', Types::DATETIME, ['notnull' => true,]);
       $table->addColumn('show_photo_timestamp', Types::BOOLEAN, ['notnull' => false]);
 
