@@ -4,15 +4,12 @@ import {
   useRef,
 } from "../vendor/htm-preact-standalone.min.mjs";
 import { css } from "../vendor/emotion-css.min.mjs";
-import { generateUrl } from "../vendor/nextcloud-router.min.mjs";
 
 import CopyButton from "../components/CopyButton.mjs";
 import Schedule from "./Schedule.mjs";
 import Screen from "./Screen.mjs";
 
-const urlForFrame = ({ shareToken }) =>
-  location.origin +
-  generateUrl("apps/photo_frames/{shareToken}", { shareToken });
+const fullUrl = (path) => location.origin + path;
 
 const styles = {
   frame: css`
@@ -78,30 +75,23 @@ export default function FrameItem(props) {
     <div className=${styles.frame}>
       <${Screen} className=${styles.preview}>
         <div ref=${iframeContainerRef} className=${styles.iframeContainer}>
-          <iframe className=${styles.iframe} src=${urlForFrame(frame)} />
+          <iframe className=${styles.iframe} src=${frame.urls.show} />
         </div>
       <//>
       <div className=${styles.info}>
         <h2>${frame.name}</h2>
 
         <div className=${styles.actions}>
-          <a
-            target="_BLANK"
-            href=${generateUrl("apps/photo_frames/{shareToken}", {
-              shareToken: frame.shareToken,
-            })}
-          >
+          <a target="_BLANK" href=${frame.urls.show}>
             <button className="primary">Show</button>
           </a>
-          <a
-            href=${generateUrl("apps/photo_frames/{id}/edit", {
-              id: frame.id,
-            })}
-          >
+          <a href=${frame.urls.edit}>
             <button>Edit</button>
           </a>
-          <button onClick=${() => onShowQRCode(urlForFrame(frame))}>QR</button>
-          <${CopyButton} data=${urlForFrame(frame)} copiedText="Copied">
+          <button onClick=${() => onShowQRCode(fullUrl(frame.urls.show))}>
+            QR
+          </button>
+          <${CopyButton} data=${fullUrl(frame.urls.show)} copiedText="Copied">
             Copy link
           <//>
 

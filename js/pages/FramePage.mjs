@@ -66,8 +66,8 @@ export default function FramePage(props) {
     photoSize,
     backgroundType,
     backgroundColor,
+    imageUrl,
   } = props;
-  const imageUrl = location.href + "/image";
   const [images, setImages] = useState([]);
   const [albumIsEmpty, setAlbumIsEmpty] = useState(false);
   const [error, setError] = useState(false);
@@ -105,7 +105,7 @@ export default function FramePage(props) {
         expiresAt: new Date(imageResponse.headers.get("expires")),
         place: decodeURIComponent(imageResponse.headers.get("X-Photo-Place")),
         timestamp: new Date(
-          imageResponse.headers.get("X-Photo-Timestamp") * 1000
+          imageResponse.headers.get("X-Photo-Timestamp") * 1000,
         ),
         refreshInterval: rotationUnitRefreshInterval[rotationUnit],
       };
@@ -177,7 +177,7 @@ export default function FramePage(props) {
           backgroundType=${backgroundType}
           backgroundColor=${backgroundColor}
           image=${image}
-        />`
+        />`,
     )}
   `;
 }

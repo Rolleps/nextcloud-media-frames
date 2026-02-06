@@ -99,8 +99,22 @@ class PageController extends Controller
 
     try {
       $uid = $this->currentUser->getUID();
+      $frames = array_map(function ($frame) {
+        $data = (array) $frame;
+        $data['urls'] = [
+          'show' => $this->urlGenerator->linkToRoute('photo_frames.page.photoframe', ['shareToken' => $frame->getShareToken()]),
+          'edit' => $this->urlGenerator->linkToRoute('photo_frames.page.edit', ['id' => $frame->getId()]),
+          'update' => $this->urlGenerator->linkToRoute('photo_frames.page.update', ['id' => $frame->getId()]),
+          'destroy' => $this->urlGenerator->linkToRoute('photo_frames.page.destroy', ['id' => $frame->getId()]),
+        ];
+        return $data;
+      }, $this->frameMapper->getAllByUser($uid));
+
       $response = $this->renderPage('IndexPage', [
-        'frames' => $this->frameMapper->getAllByUser($uid)
+        'frames' => $frames,
+        'urls' => [
+          'new' => $this->urlGenerator->linkToRoute('photo_frames.page.new'),
+        ],
       ]);
 
       // Make index page iframes work
@@ -129,7 +143,11 @@ class PageController extends Controller
       return $this->renderPage('NewPage', [
         'frame' => new Frame(),
         'albums' => $this->frameMapper->getAvailableAlbums($uid),
-        'requestToken' => Util::callRegister()
+        'requestToken' => Util::callRegister(),
+        'urls' => [
+          'index' => $this->urlGenerator->linkToRoute('photo_frames.page.index'),
+          'create' => $this->urlGenerator->linkToRoute('photo_frames.page.create'),
+        ]
       ]);
     } catch (Exception $error) {
       return $this->errorPage($error);
@@ -270,6 +288,7 @@ class PageController extends Controller
           'photoSize' => $frame->getPhotoSize(),
           'backgroundType' => $frame->getBackgroundType(),
           'backgroundColor' => $frame->getBackgroundColor(),
+          'imageUrl' => $this->urlGenerator->linkToRoute('photo_frames.page.photoframeImage', ['shareToken' => $frame->getShareToken()])
         ],
         true,
         $frame->getBackgroundType() === 'color' ? $frame->getBackgroundColor() : '#000',

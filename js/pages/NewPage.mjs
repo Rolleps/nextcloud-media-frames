@@ -1,17 +1,16 @@
 import { html } from "../vendor/htm-preact-standalone.min.mjs";
-import { generateUrl } from "../vendor/nextcloud-router.min.mjs";
 import Breadcrumbs from "../components/Breadcrumbs.mjs";
 import FrameFields from "../components/FrameFields.mjs";
 
-export default function EditPage({ frame, requestToken, albums }) {
+export default function EditPage({ frame, requestToken, albums, urls }) {
   const breadcrumbItems = [
-    { title: "Photo frames", url: generateUrl("apps/photo_frames") },
+    { title: "Photo frames", url: urls.index },
     { title: "New frame" },
   ];
 
   return html`
     <>
-    <form action=${generateUrl("apps/photo_frames")} method="post">
+    <form action=${urls.create} method="post">
       <${Breadcrumbs} items=${breadcrumbItems}>
         <button type="submit" class="primary">Save frame</button>
       <//>

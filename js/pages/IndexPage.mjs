@@ -4,7 +4,6 @@ import {
   useState,
 } from "../vendor/htm-preact-standalone.min.mjs";
 import { css } from "../vendor/emotion-css.min.mjs";
-import { generateUrl } from "../vendor/nextcloud-router.min.mjs";
 
 import FrameItem from "../components/FrameItem.mjs";
 
@@ -79,8 +78,7 @@ export default function IndexPage(props) {
     const prevFrames = frames.slice();
     setFrames(prevFrames.filter((f) => f.id !== frame.id));
 
-    const deleteUrl = generateUrl("apps/photo_frames/{id}", { id: frame.id });
-    const response = await fetch(deleteUrl, { method: "DELETE" });
+    const response = await fetch(frame.urls.destroy, { method: "DELETE" });
 
     if (!response.ok) setFrames(prevFrames);
   };
@@ -88,7 +86,7 @@ export default function IndexPage(props) {
   return html`
     <div className="flex">
       <h2>Photo Frames</h2>
-      <a href=${generateUrl("apps/photo_frames/new")}>
+      <a href=${props.urls.new}>
         <button className="primary">New frame</button>
       </a>
     </div>
