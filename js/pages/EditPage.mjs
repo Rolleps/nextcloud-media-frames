@@ -3,7 +3,6 @@ import Breadcrumbs from "../components/Breadcrumbs.mjs";
 import FrameFields from "../components/FrameFields.mjs";
 
 export default function EditPage({ frame, requestToken, albums, urls }) {
-  console.log(frame);
   const breadcrumbItems = [
     { title: "Photo frames", url: urls.index },
     { title: frame.name },
