@@ -202,10 +202,22 @@ class PageController extends Controller
       Util::addScript(Application::APP_ID, 'vendor/highlight-javascript.min');
       Util::addScript(Application::APP_ID, 'vendor/code-input.min');
 
+      $frame = $this->frameMapper->getByUserIdAndFrameId($uid, (int) $id);
+      $frameArray = (array) $frame;
+      $frameArray['urls'] = [
+        'show' => $this->urlGenerator->linkToRoute('photo_frames.page.photoframe', ['shareToken' => $frame->getShareToken()]),
+        'edit' => $this->urlGenerator->linkToRoute('photo_frames.page.edit', ['id' => $frame->getId()]),
+        'update' => $this->urlGenerator->linkToRoute('photo_frames.page.update', ['id' => $frame->getId()]),
+        'destroy' => $this->urlGenerator->linkToRoute('photo_frames.page.destroy', ['id' => $frame->getId()]),
+      ];
+
       return $this->renderPage('EditPage', [
-        'frame' => $this->frameMapper->getByUserIdAndFrameId($uid, (int) $id),
+        'frame' => $frameArray,
         'albums' => $this->frameMapper->getAvailableAlbums($uid),
-        'requestToken' => Util::callRegister()
+        'requestToken' => Util::callRegister(),
+        'urls' => [
+          'index' => $this->urlGenerator->linkToRoute('photo_frames.page.index'),
+        ]
       ]);
     } catch (Exception $error) {
       return $this->errorPage($error);
