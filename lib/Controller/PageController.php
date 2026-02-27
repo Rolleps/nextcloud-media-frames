@@ -10,6 +10,7 @@ use OCA\PhotoFrames\Db\EntryMapper;
 use OCA\PhotoFrames\Db\Frame;
 use OCA\PhotoFrames\Db\FrameMapper;
 use OCA\PhotoFrames\Service\PhotoFrameService;
+use OCA\PhotoFrames\Service\FramePresenterService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -51,6 +52,7 @@ class PageController extends Controller
   private IURLGenerator $urlGenerator;
   private IDBConnection $db;
   private IAppManager $appManager;
+  private FramePresenterService $framePresenter;
 
   private $testedPhotosVersions = [3, 4, 5];
 
@@ -67,6 +69,7 @@ class PageController extends Controller
     IURLGenerator $urlGenerator,
     IDBConnection $db,
     IAppManager $appManager,
+    FramePresenterService $framePresenter,
   ) {
     parent::__construct($appName, $request);
     $this->entryMapper = $entryMapper;
@@ -79,6 +82,7 @@ class PageController extends Controller
     $this->urlGenerator = $urlGenerator;
     $this->db = $db;
     $this->appManager = $appManager;
+    $this->framePresenter = $framePresenter;
   }
 
   #[NoCSRFRequired]
@@ -99,19 +103,9 @@ class PageController extends Controller
 
     try {
       $uid = $this->currentUser->getUID();
-      $frames = array_map(function ($frame) {
-        $data = (array) $frame;
-        $data['urls'] = [
-          'show' => $this->urlGenerator->linkToRoute('photo_frames.page.photoframe', ['shareToken' => $frame->getShareToken()]),
-          'edit' => $this->urlGenerator->linkToRoute('photo_frames.page.edit', ['id' => $frame->getId()]),
-          'update' => $this->urlGenerator->linkToRoute('photo_frames.page.update', ['id' => $frame->getId()]),
-          'destroy' => $this->urlGenerator->linkToRoute('photo_frames.page.destroy', ['id' => $frame->getId()]),
-        ];
-        return $data;
-      }, $this->frameMapper->getAllByUser($uid));
-
+      $frames = $this->frameMapper->getAllByUser($uid);
       $response = $this->renderPage('IndexPage', [
-        'frames' => $frames,
+        'frames' => $this->framePresenter->presentFrames($frames),
         'urls' => [
           'new' => $this->urlGenerator->linkToRoute('photo_frames.page.new'),
         ],
@@ -203,16 +197,9 @@ class PageController extends Controller
       Util::addScript(Application::APP_ID, 'vendor/code-input.min');
 
       $frame = $this->frameMapper->getByUserIdAndFrameId($uid, (int) $id);
-      $frameArray = (array) $frame;
-      $frameArray['urls'] = [
-        'show' => $this->urlGenerator->linkToRoute('photo_frames.page.photoframe', ['shareToken' => $frame->getShareToken()]),
-        'edit' => $this->urlGenerator->linkToRoute('photo_frames.page.edit', ['id' => $frame->getId()]),
-        'update' => $this->urlGenerator->linkToRoute('photo_frames.page.update', ['id' => $frame->getId()]),
-        'destroy' => $this->urlGenerator->linkToRoute('photo_frames.page.destroy', ['id' => $frame->getId()]),
-      ];
 
       return $this->renderPage('EditPage', [
-        'frame' => $frameArray,
+        'frame' => $this->framePresenter->presentFrame($frame),
         'albums' => $this->frameMapper->getAvailableAlbums($uid),
         'requestToken' => Util::callRegister(),
         'urls' => [
