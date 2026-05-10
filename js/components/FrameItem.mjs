@@ -102,16 +102,19 @@ export default function FrameItem(props) {
           </button>
         </div>
 
-        <p><strong>Album:</strong> ${frame.albumName}</p>
+        <p>
+          <strong>Sources:</strong>${" "}
+          ${(frame.sources || []).map((s, i) => html`
+            <span key=${i} style="margin-right:0.4em;">
+              ${s.type === "album" ? (s.title || "Album") : s.path}
+            </span>
+          `)}
+          ${(!frame.sources || frame.sources.length === 0) && html`<em>None</em>`}
+        </p>
 
         <p>
-          <strong>Select:</strong>
-          ${" "}
-          ${{
-            latest: "Latest",
-            oldest: "Oldest",
-            random: "Random",
-          }[frame.selectionMethod]}
+          <strong>Select:</strong>${" "}
+          ${{ latest: "Latest", oldest: "Oldest", random: "Random" }[frame.selectionMethod]}
         </p>
         <${Schedule} ...${frame} />
       </div>

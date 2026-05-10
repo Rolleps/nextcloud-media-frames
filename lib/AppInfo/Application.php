@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\PhotoFrames\AppInfo;
+namespace OCA\MediaFrames\AppInfo;
 
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -11,7 +11,7 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
 
 class Application extends App implements IBootstrap
 {
-  public const APP_ID = 'photo_frames';
+  public const APP_ID = 'media_frames';
 
   /** @psalm-suppress PossiblyUnusedMethod */
   public function __construct()

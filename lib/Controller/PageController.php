@@ -2,28 +2,30 @@
 
 declare(strict_types=1);
 
-namespace OCA\PhotoFrames\Controller;
+namespace OCA\MediaFrames\Controller;
 
 use Exception;
-use OCA\PhotoFrames\AppInfo\Application;
-use OCA\PhotoFrames\Db\EntryMapper;
-use OCA\PhotoFrames\Db\Frame;
-use OCA\PhotoFrames\Db\FrameMapper;
-use OCA\PhotoFrames\Service\PhotoFrameService;
-use OCA\PhotoFrames\Service\FramePresenterService;
+use OCA\MediaFrames\AppInfo\Application;
+use OCA\MediaFrames\Db\EntryMapper;
+use OCA\MediaFrames\Db\Frame;
+use OCA\MediaFrames\Db\FrameFile;
+use OCA\MediaFrames\Db\FrameMapper;
+use OCA\MediaFrames\Service\MediaFrameService;
+use OCA\MediaFrames\Service\FramePresenterService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PublicPage;
-use OCP\AppFramework\Http\ContentSecurityPolicy;
-use OCP\AppFramework\Http\FileDisplayResponse;
+use OCP\AppFramework\Http\DataDisplayResponse;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\NotFoundResponse;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\Common\Exception\NotFoundException;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -33,15 +35,16 @@ use OCP\IUser;
 use OCP\IUserSession;
 use OCP\IURLGenerator;
 use OCP\Security\Bruteforce\IThrottler;
-use OCP\Util;
 use OCP\App\IAppManager;
+use OCP\Util;
 
 /**
  * @psalm-suppress UnusedClass
  */
 class PageController extends Controller
 {
-  private const BRUTEFORCE_ACTION = 'photo_frames';
+  private const BRUTEFORCE_ACTION = 'media_frames';
+
   private EntryMapper $entryMapper;
   private FrameMapper $frameMapper;
   private IThrottler $throttler;
@@ -53,8 +56,6 @@ class PageController extends Controller
   private IDBConnection $db;
   private IAppManager $appManager;
   private FramePresenterService $framePresenter;
-
-  private $testedPhotosVersions = [3, 4, 5];
 
   public function __construct(
     $appName,
@@ -85,6 +86,8 @@ class PageController extends Controller
     $this->framePresenter = $framePresenter;
   }
 
+  // ── Authenticated (admin) routes ────────────────────────────────────────────
+
   #[NoCSRFRequired]
   #[NoAdminRequired]
   #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
@@ -92,13 +95,6 @@ class PageController extends Controller
   public function index(): Response
   {
     Util::addStyle(Application::APP_ID, 'main');
-
-    if (!$this->photosIsInstalled()) {
-      return $this->renderPage('ErrorPage', [
-        "message" => "Photo Frames cannot function without the Photos app.\nPlease activate the Photos app and try again."
-      ]);
-    }
-
     Util::addScript(Application::APP_ID, 'vendor/qrcode.min');
 
     try {
@@ -107,11 +103,9 @@ class PageController extends Controller
       $response = $this->renderPage('IndexPage', [
         'frames' => $this->framePresenter->presentFrames($frames),
         'urls' => [
-          'new' => $this->urlGenerator->linkToRoute('photo_frames.page.new'),
+          'new' => $this->urlGenerator->linkToRoute('media_frames.page.new'),
         ],
       ]);
-
-      // Make index page iframes work
       $response->getContentSecurityPolicy()->addAllowedFrameDomain($this->request->getServerHost());
       return $response;
     } catch (Exception $error) {
@@ -139,9 +133,10 @@ class PageController extends Controller
         'albums' => $this->frameMapper->getAvailableAlbums($uid),
         'requestToken' => Util::callRegister(),
         'urls' => [
-          'index' => $this->urlGenerator->linkToRoute('photo_frames.page.index'),
-          'create' => $this->urlGenerator->linkToRoute('photo_frames.page.create'),
-        ]
+          'index' => $this->urlGenerator->linkToRoute('media_frames.page.index'),
+          'create' => $this->urlGenerator->linkToRoute('media_frames.page.create'),
+          'folders' => $this->urlGenerator->linkToRoute('media_frames.page.folders'),
+        ],
       ]);
     } catch (Exception $error) {
       return $this->errorPage($error);
@@ -155,26 +150,32 @@ class PageController extends Controller
   {
     try {
       $params = $this->request->getParams();
+      $uid = $this->currentUser->getUID();
+
       $this->frameMapper->createFrame(
         $params['name'],
-        $this->currentUser->getUID(),
-        $this->frameMapper->validAlbumForUser($this->currentUser->getUID(), (int) $params['albumId']),
+        $uid,
+        $this->buildSources($params),
         $params['selectionMethod'],
-        (bool) $params['favorNewAdditions'],
+        (bool) ($params['favorNewAdditions'] ?? false),
         $params['rotationUnit'],
         (int) $params['rotationsPerUnit'],
         $params['startDayAt'],
         $params['endDayAt'],
-        (bool) $params['showPhotoTimestamp'],
-        (bool) $params['showPhotoPlace'],
-        (bool) $params['showClock'],
-        $params['photoSize'],
-        $params['backgroundType'],
-        $params['backgroundColor'],
-        $params['javascript']
+        (int) ($params['imageDurationSeconds'] ?? 30),
+        $params['videoDuration'] ?? 'full',
+        (int) ($params['videoFixedDurationSeconds'] ?? 30),
+        $this->hashPassword($params['devicePassword'] ?? ''),
+        (bool) ($params['showPhotoTimestamp'] ?? true),
+        (bool) ($params['showPhotoPlace'] ?? false),
+        (bool) ($params['showClock'] ?? false),
+        $params['photoSize'] ?? 'smart-fit',
+        $params['backgroundType'] ?? 'aura',
+        $params['backgroundColor'] ?? '#000000',
+        $params['javascript'] ?? ''
       );
 
-      return new RedirectResponse(redirectURL: $this->urlGenerator->linkToRoute('photo_frames.page.index'));
+      return new RedirectResponse($this->urlGenerator->linkToRoute('media_frames.page.index'));
     } catch (Exception $error) {
       return $this->errorPage($error);
     }
@@ -188,7 +189,6 @@ class PageController extends Controller
   {
     try {
       $uid = $this->currentUser->getUID();
-
       Util::addStyle(Application::APP_ID, 'main');
       Util::addStyle(Application::APP_ID, 'highlight-theme');
       Util::addStyle(Application::APP_ID, 'vendor/code-input.min');
@@ -203,8 +203,9 @@ class PageController extends Controller
         'albums' => $this->frameMapper->getAvailableAlbums($uid),
         'requestToken' => Util::callRegister(),
         'urls' => [
-          'index' => $this->urlGenerator->linkToRoute('photo_frames.page.index'),
-        ]
+          'index' => $this->urlGenerator->linkToRoute('media_frames.page.index'),
+          'folders' => $this->urlGenerator->linkToRoute('media_frames.page.folders'),
+        ],
       ]);
     } catch (Exception $error) {
       return $this->errorPage($error);
@@ -221,27 +222,39 @@ class PageController extends Controller
       $frame = $this->frameMapper->getByUserIdAndFrameId($uid, (int) $id);
       $params = $this->request->getParams();
 
+      // Keep existing password if new one is empty
+      $passwordHash = null;
+      $newPassword = $params['devicePassword'] ?? '';
+      if ($newPassword !== '') {
+        $passwordHash = $this->hashPassword($newPassword);
+      } elseif (($params['clearDevicePassword'] ?? '') === '1') {
+        $frame->setDevicePasswordHash(null);
+      }
+
       $this->frameMapper->updateFrame(
         $frame,
         $params['name'],
-        $this->currentUser->getUID(),
-        $this->frameMapper->validAlbumForUser($this->currentUser->getUID(), (int) $params['albumId']),
+        $this->buildSources($params),
         $params['selectionMethod'],
-        (bool) $params['favorNewAdditions'],
+        (bool) ($params['favorNewAdditions'] ?? false),
         $params['rotationUnit'],
         (int) $params['rotationsPerUnit'],
         $params['startDayAt'],
         $params['endDayAt'],
-        (bool) $params['showPhotoTimestamp'],
-        (bool) $params['showPhotoPlace'],
-        (bool) $params['showClock'],
-        $params['photoSize'],
-        $params['backgroundType'],
-        $params['backgroundColor'],
-        $params['javascript']
+        (int) ($params['imageDurationSeconds'] ?? 30),
+        $params['videoDuration'] ?? 'full',
+        (int) ($params['videoFixedDurationSeconds'] ?? 30),
+        $passwordHash,
+        (bool) ($params['showPhotoTimestamp'] ?? true),
+        (bool) ($params['showPhotoPlace'] ?? false),
+        (bool) ($params['showClock'] ?? false),
+        $params['photoSize'] ?? 'smart-fit',
+        $params['backgroundType'] ?? 'aura',
+        $params['backgroundColor'] ?? '#000000',
+        $params['javascript'] ?? ''
       );
 
-      return new RedirectResponse($this->urlGenerator->linkToRoute('photo_frames.page.index'));
+      return new RedirectResponse($this->urlGenerator->linkToRoute('media_frames.page.index'));
     } catch (Exception $error) {
       return $this->errorPage($error);
     }
@@ -256,9 +269,7 @@ class PageController extends Controller
     try {
       $uid = $this->currentUser->getUID();
       $frame = $this->frameMapper->getByUserIdAndFrameId($uid, (int) $id);
-
       $this->frameMapper->destroyFrame($frame);
-
       return new Response(204);
     } catch (Exception $error) {
       return $this->errorPage($error);
@@ -266,18 +277,63 @@ class PageController extends Controller
   }
 
   #[NoCSRFRequired]
+  #[NoAdminRequired]
+  #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+  #[FrontpageRoute(verb: 'GET', url: '/api/folders')]
+  public function folders(): Response
+  {
+    try {
+      $uid = $this->currentUser->getUID();
+      $path = $this->request->getParam('path', '/');
+      $userFolder = $this->rootFolder->getUserFolder($uid);
+
+      $node = $path === '/' ? $userFolder : $userFolder->get($path);
+
+      if (!($node instanceof Folder)) {
+        return new JSONResponse(['folders' => []]);
+      }
+
+      $folders = [];
+      foreach ($node->getDirectoryListing() as $child) {
+        if ($child instanceof Folder) {
+          $folders[] = [
+            'name' => $child->getName(),
+            'path' => $path === '/' ? '/' . $child->getName() : $path . '/' . $child->getName(),
+          ];
+        }
+      }
+
+      return new JSONResponse(['folders' => $folders]);
+    } catch (Exception) {
+      return new JSONResponse(['folders' => []]);
+    }
+  }
+
+  // ── Public frame routes ──────────────────────────────────────────────────────
+
+  #[NoCSRFRequired]
   #[PublicPage]
   #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
   #[FrontpageRoute(verb: 'GET', url: '/{shareToken}', requirements: ['shareToken' => '[a-zA-Z0-9]{64}'])]
-  public function photoframe($shareToken): Response
+  public function mediaframe($shareToken): Response
   {
-    $frame = $this->frameMapper->getByShareToken($shareToken);
+    $frame = $this->getFrameOrThrottle($shareToken);
     if (!$frame) {
-      $this->throttler->registerAttempt(self::BRUTEFORCE_ACTION, $this->request->getRemoteAddress());
-      throw new NotFoundException('Unable to find album');
+      throw new NotFoundException('Frame not found');
+    }
+
+    // Device auth check
+    $authResult = $this->checkDeviceAuth($frame, $shareToken);
+    if ($authResult !== null) {
+      return $authResult;
     }
 
     try {
+      $mediaUrl = $this->urlGenerator->linkToRoute(
+        'media_frames.page.mediaframeMedia',
+        ['shareToken' => $frame->getShareToken()]
+      );
+
       $response = $this->renderPage(
         'FramePage',
         [
@@ -287,14 +343,15 @@ class PageController extends Controller
           'photoSize' => $frame->getPhotoSize(),
           'backgroundType' => $frame->getBackgroundType(),
           'backgroundColor' => $frame->getBackgroundColor(),
-          'imageUrl' => $this->urlGenerator->linkToRoute('photo_frames.page.photoframeImage', ['shareToken' => $frame->getShareToken()])
+          'mediaUrl' => $mediaUrl,
+          'shareToken' => $shareToken,
+          'appPath' => $this->appManager->getAppWebPath(Application::APP_ID),
         ],
         true,
         $frame->getBackgroundType() === 'color' ? $frame->getBackgroundColor() : '#000',
         $frame->getJavascript(),
       );
 
-      // Allow embedding photo frames
       $response->getContentSecurityPolicy()->addAllowedFrameAncestorDomain('*');
       return $response;
     } catch (Exception $error) {
@@ -305,109 +362,271 @@ class PageController extends Controller
   #[NoCSRFRequired]
   #[PublicPage]
   #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
-  #[FrontpageRoute(verb: 'GET', url: '/{shareToken}/image', requirements: ['shareToken' => '[a-zA-Z0-9]+'])]
-  public function photoframeImage($shareToken): Response
+  #[FrontpageRoute(verb: 'GET', url: '/{shareToken}/auth', requirements: ['shareToken' => '[a-zA-Z0-9]{64}'])]
+  public function mediaframeAuth($shareToken): Response
   {
-    $frame = $this->frameMapper->getByShareToken($shareToken);
+    $frame = $this->getFrameOrThrottle($shareToken);
     if (!$frame) {
+      throw new NotFoundException('Frame not found');
+    }
+
+    // Check if a ?key= was supplied in the URL for headless setup (e.g., Raspberry Pi)
+    $key = $this->request->getParam('key', '');
+    if ($key !== '' && $frame->getDevicePasswordHash() !== null) {
+      if (password_verify($key, $frame->getDevicePasswordHash())) {
+        $response = new RedirectResponse(
+          $this->urlGenerator->linkToRoute('media_frames.page.mediaframe', ['shareToken' => $shareToken])
+        );
+        $this->setDeviceCookie($response, $frame->getId(), $shareToken);
+        return $response;
+      }
       $this->throttler->registerAttempt(self::BRUTEFORCE_ACTION, $this->request->getRemoteAddress());
-      throw new NotFoundException('Unable to find album');
+    }
+
+    return $this->renderAuthPage($shareToken, false);
+  }
+
+  #[PublicPage]
+  #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+  #[FrontpageRoute(verb: 'POST', url: '/{shareToken}/auth', requirements: ['shareToken' => '[a-zA-Z0-9]{64}'])]
+  public function mediaframeAuthSubmit($shareToken): Response
+  {
+    $frame = $this->getFrameOrThrottle($shareToken);
+    if (!$frame) {
+      throw new NotFoundException('Frame not found');
+    }
+
+    $password = $this->request->getParam('password', '');
+
+    if (
+      $frame->getDevicePasswordHash() !== null &&
+      password_verify($password, $frame->getDevicePasswordHash())
+    ) {
+      $response = new RedirectResponse(
+        $this->urlGenerator->linkToRoute('media_frames.page.mediaframe', ['shareToken' => $shareToken])
+      );
+      $this->setDeviceCookie($response, $frame->getId(), $shareToken);
+      return $response;
+    }
+
+    $this->throttler->registerAttempt(self::BRUTEFORCE_ACTION, $this->request->getRemoteAddress());
+    return $this->renderAuthPage($shareToken, true);
+  }
+
+  #[NoCSRFRequired]
+  #[PublicPage]
+  #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+  #[FrontpageRoute(verb: 'GET', url: '/{shareToken}/media', requirements: ['shareToken' => '[a-zA-Z0-9]+'])]
+  #[FrontpageRoute(verb: 'HEAD', url: '/{shareToken}/media', requirements: ['shareToken' => '[a-zA-Z0-9]+'])]
+  public function mediaframeMedia($shareToken): Response
+  {
+    $frame = $this->getFrameOrThrottle($shareToken);
+    if (!$frame) {
+      throw new NotFoundException('Frame not found');
+    }
+
+    $authResult = $this->checkDeviceAuth($frame, $shareToken);
+    if ($authResult !== null) {
+      return new Response(401);
     }
 
     try {
-      $service = new PhotoFrameService($this->entryMapper, $this->frameMapper, $this->rootFolder, $frame);
+      $service = new MediaFrameService($this->entryMapper, $this->frameMapper, $this->rootFolder, $frame);
       $frameFile = $service->getCurrentFrameFile();
 
       if (!$frameFile) {
         return new NotFoundResponse();
       }
 
+      $mediaType = $frameFile->getMediaType();
       $node = $service->getFrameFileNode($frameFile);
 
-      $headers = [
-        'X-Photo-Timestamp' => $frameFile->getCapturedAtTimestamp(),
-        'X-Frame-Rotation-Unit' => $frame->getRotationUnit(),
+      $baseHeaders = [
+        'X-Media-Type' => $mediaType,
+        'X-File-Id' => (string) $frameFile->getFileId(),
+        'X-Photo-Timestamp' => (string) $frameFile->getCapturedAtTimestamp(),
         'X-Photo-Place' => rawurlencode($frameFile->getPlace() ?? ''),
         'Expires' => $frameFile->getExpiresHeader(),
-        'Content-Type' => $frameFile->getMimeType(),
+        'Cache-Control' => 'no-cache',
       ];
 
-      $method = $this->request->getMethod();
-      if ($method === 'HEAD') {
-        return new Response(200, $headers);
-      } else {
-        $preview = $this->preview->getPreview($node, 2560, height: 2560);
-        return new FileDisplayResponse($preview, 200, $headers);
+      if ($this->request->getMethod() === 'HEAD') {
+        return new Response(200, $baseHeaders);
       }
+
+      if ($mediaType === FrameFile::MEDIA_TYPE_VIDEO) {
+        // Stream video directly
+        $data = $node->getContent();
+        return new DataDisplayResponse($data, 200, array_merge($baseHeaders, [
+          'Content-Type' => $frameFile->getMimeType(),
+          'X-Duration' => $frame->getVideoDuration() === 'full' ? 'full' : (string) $frame->getVideoFixedDurationSeconds(),
+        ]));
+      }
+
+      // Image or document: return a JPEG preview
+      $previewFile = $this->preview->getPreview($node, 1920, 1920);
+      return new \OCP\AppFramework\Http\FileDisplayResponse($previewFile, 200, array_merge($baseHeaders, [
+        'Content-Type' => 'image/jpeg',
+      ]));
     } catch (Exception $error) {
       return $this->errorPage($error);
     }
   }
 
-  private function renderPage($name, $props, $blank = false, $backgroundColor = '#000', $javascript = ''): Response
+  #[NoCSRFRequired]
+  #[PublicPage]
+  #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+  #[FrontpageRoute(verb: 'GET', url: '/{shareToken}/file/{fileId}', requirements: ['shareToken' => '[a-zA-Z0-9]+', 'fileId' => '[0-9]+'])]
+  public function mediaframeFile($shareToken, $fileId): Response
+  {
+    $frame = $this->getFrameOrThrottle($shareToken);
+    if (!$frame) {
+      throw new NotFoundException('Frame not found');
+    }
+
+    $authResult = $this->checkDeviceAuth($frame, $shareToken);
+    if ($authResult !== null) {
+      return new Response(401);
+    }
+
+    try {
+      $service = new MediaFrameService($this->entryMapper, $this->frameMapper, $this->rootFolder, $frame);
+      $frameFile = $this->frameMapper->getFrameFileById($frame, (int) $fileId);
+
+      if (!$frameFile) {
+        return new NotFoundResponse();
+      }
+
+      $node = $service->getFrameFileNode($frameFile);
+      $data = $node->getContent();
+
+      return new DataDisplayResponse($data, 200, [
+        'Content-Type' => $frameFile->getMimeType(),
+        'Cache-Control' => 'private, max-age=3600',
+      ]);
+    } catch (Exception) {
+      return new NotFoundResponse();
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  private function getFrameOrThrottle(string $shareToken): ?Frame
+  {
+    $frame = $this->frameMapper->getByShareToken($shareToken);
+    if (!$frame) {
+      $this->throttler->registerAttempt(self::BRUTEFORCE_ACTION, $this->request->getRemoteAddress());
+    }
+    return $frame;
+  }
+
+  private function checkDeviceAuth(Frame $frame, string $shareToken): ?Response
+  {
+    if ($frame->getDevicePasswordHash() === null) {
+      return null; // No protection
+    }
+
+    $cookieName = 'mf_device_' . $frame->getId();
+    $expectedValue = $this->getExpectedCookieValue($frame->getId(), $shareToken);
+    $cookieValue = $this->request->getCookie($cookieName);
+
+    if ($cookieValue !== null && hash_equals($expectedValue, $cookieValue)) {
+      return null; // Valid cookie
+    }
+
+    // Redirect to auth page
+    return new RedirectResponse(
+      $this->urlGenerator->linkToRoute('media_frames.page.mediaframeAuth', ['shareToken' => $shareToken])
+    );
+  }
+
+  private function getExpectedCookieValue(int $frameId, string $shareToken): string
+  {
+    $secret = $this->config->getSystemValue('secret', '');
+    return hash_hmac('sha256', $frameId . ':' . $shareToken, $secret);
+  }
+
+  private function setDeviceCookie(Response $response, int $frameId, string $shareToken): void
+  {
+    $cookieName = 'mf_device_' . $frameId;
+    $value = $this->getExpectedCookieValue($frameId, $shareToken);
+    $response->addCookie($cookieName, $value, new \DateTime('+1 year'), '/', null, true, true);
+  }
+
+  private function hashPassword(string $password): ?string
+  {
+    if ($password === '') {
+      return null;
+    }
+    return password_hash($password, PASSWORD_BCRYPT);
+  }
+
+  private function buildSources(array $params): string
+  {
+    // The form sends sources as a JSON string
+    $sourcesJson = $params['sources'] ?? '[]';
+    $sources = json_decode($sourcesJson, true);
+    if (!is_array($sources)) {
+      $sources = [];
+    }
+    return json_encode($sources);
+  }
+
+  private function renderPage(string $name, array $props, bool $blank = false, string $backgroundColor = '#000', string $javascript = ''): TemplateResponse
   {
     return new TemplateResponse(
       appName: Application::APP_ID,
-      templateName: $blank ? "blank" : 'page',
+      templateName: $blank ? 'blank' : 'page',
       params: [
         'pageName' => $name,
         'pageProps' => $props,
-        "javascript" => $blank ? $javascript : null,
+        'javascript' => $blank ? $javascript : null,
         'backgroundColor' => $backgroundColor,
-        "appPath" => $this->appManager->getAppWebPath('photo_frames'),
+        'appPath' => $this->appManager->getAppWebPath(Application::APP_ID),
       ],
       renderAs: $blank ? TemplateResponse::RENDER_AS_BLANK : TemplateResponse::RENDER_AS_USER,
     );
   }
 
-  private function errorPage($error): Response
+  private function renderAuthPage(string $shareToken, bool $failed): Response
+  {
+    $response = new TemplateResponse(
+      appName: Application::APP_ID,
+      templateName: 'auth',
+      params: [
+        'shareToken' => $shareToken,
+        'failed' => $failed,
+        'authUrl' => $this->urlGenerator->linkToRoute('media_frames.page.mediaframeAuthSubmit', ['shareToken' => $shareToken]),
+        'appPath' => $this->appManager->getAppWebPath(Application::APP_ID),
+      ],
+      renderAs: TemplateResponse::RENDER_AS_BLANK,
+    );
+    return $response;
+  }
+
+  private function errorPage(Exception $error): Response
   {
     Util::addStyle(Application::APP_ID, 'main');
 
-    $testedVersionsString = join(', ', $this->testedPhotosVersions);
-    $photosVersion = $this->getPhotosVersion();
-    $message = $this->isTestedPhotosVersion()
-      ? "Something went wrong. Please try disabling and reenabling the Photo Frames app."
-      : "You are using an unsupported version of the Photos app ($photosVersion), supported versions are: $testedVersionsString";
-
-
     $debugInfo = [
-      ["**Nextcloud version**", implode('.', Util::getVersion())],
-      ["**Photo Frames version**", $this->appManager->getAppVersion("photo_frames")],
-      ["**Photos version**", $this->appManager->getAppVersion("photos")],
-      ["**Database**", $this->db->getDatabaseProvider()],
-      ["**Error Message**", $error->getMessage()],
-      ["**File:line**", '`' . $error->getFile() . ":" . $error->getLine() . '`'],
-      ["**Stack trace**", "```txt\n" . $error->getTraceAsString() . "\n```"],
+      ['**Nextcloud version**', implode('.', Util::getVersion())],
+      ['**Media Frames version**', $this->appManager->getAppVersion(Application::APP_ID)],
+      ['**Database**', $this->db->getDatabaseProvider()],
+      ['**Error**', $error->getMessage()],
+      ['**File:line**', '`' . $error->getFile() . ':' . $error->getLine() . '`'],
+      ['**Stack trace**', "```txt\n" . $error->getTraceAsString() . "\n```"],
     ];
-    $debugInfoString = implode("\n\n", array_map(function ($value) {
-      return implode("\n", $value);
-    }, $debugInfo));
 
-    $issueBody = "## What happened\n\n[Describe what you did to trigger the error]\n\n## Debug information\n\n" . $debugInfoString;
-    $issueTitle = $error->getMessage();
-    $reportLink = "https://github.com/jeppester/nextcloud-photo-frames/issues/new?title=" . urlencode($issueTitle) . "&body=" . urlencode($issueBody);
+    $debugInfoString = implode("\n\n", array_map(fn($v) => implode("\n", $v), $debugInfo));
+    $issueBody = "## What happened\n\n[Describe what you did]\n\n## Debug info\n\n" . $debugInfoString;
+    $reportLink = 'https://github.com/Rolleps/nextcloud-media-frames/issues/new?title='
+      . urlencode($error->getMessage()) . '&body=' . urlencode($issueBody);
 
     $response = $this->renderPage('ErrorPage', [
-      'message' => $message,
+      'message' => 'Something went wrong. Please try disabling and re-enabling the Media Frames app.',
       'reportLink' => $reportLink,
     ]);
     $response->setStatus(500);
     return $response;
-  }
-
-  private function photosIsInstalled()
-  {
-    return $this->appManager->isInstalled('photos');
-  }
-
-  private function getPhotosVersion()
-  {
-    return (int) $this->appManager->getAppVersion('photos')[0];
-  }
-
-  private function isTestedPhotosVersion()
-  {
-    return in_array($this->getPhotosVersion(), $this->testedPhotosVersions);
   }
 }

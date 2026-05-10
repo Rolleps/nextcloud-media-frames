@@ -2,17 +2,15 @@
 
 declare(strict_types=1);
 
-namespace OCA\PhotoFrames\Db;
+namespace OCA\MediaFrames\Db;
 
 class Album
 {
   public int $id;
   public string $title;
 
-  public function __construct(
-    int $id,
-    string $title,
-  ) {
+  public function __construct(int $id, string $title)
+  {
     $this->id = $id;
     $this->title = $title;
   }

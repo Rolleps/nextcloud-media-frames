@@ -11,52 +11,37 @@ import PhotoCouldNotBeLoaded from "../components/PhotoCouldNotBeLoaded.mjs";
 import dispatch from "../utils/dispatch.mjs";
 import timedFetch from "../utils/timedFetch.mjs";
 
-const rotationUnitRefreshInterval = {
-  day: 1000 * 60, // One minute
-  hour: 1000 * 60, // One minute
-  minute: 1000, // One second
-};
-
 injectGlobal`
-  :root {
-    font-size: 16px;
-  }
-  body {
-    margin: 0;
-  }
+  :root { font-size: 16px; }
+  body { margin: 0; }
 `;
 
-async function responseToBlobUrl(imageResponse) {
-  // Read the image to a DataURL using the FileReader API
-  // This is to prevent the browser from caching the image URL (which is the same for all images)
-  const blob = await imageResponse.blob();
+class SourceEmptyError extends Error {}
+class UpdateMediaError extends Error {}
 
+/**
+ * Convert a fetch response to a blob URL.
+ * Only used for images/documents — never for videos (too heavy on low-RAM devices).
+ */
+async function responseToBlobUrl(response) {
+  const blob = await response.blob();
   const reader = new FileReader();
-  dispatch("pf:image-loadstart", { reader });
-
+  dispatch("mf:media-loadstart", { reader });
   const result = await new Promise((res, rej) => {
     reader.onloadend = () => res(reader.result);
     reader.onerror = () => rej();
     reader.readAsDataURL(blob);
   });
-
-  dispatch("pf:image-loadend", { reader });
+  dispatch("mf:media-loadend", { reader });
   return result;
 }
 
 let nextTimeoutAt = Date.now();
-const getNextTimeoutDelay = (currentImage) => {
-  if (!currentImage) return 0;
-
-  while (nextTimeoutAt <= Date.now()) {
-    nextTimeoutAt += currentImage.refreshInterval;
-  }
-
+const getNextTimeoutDelay = (current) => {
+  if (!current) return 0;
+  while (nextTimeoutAt <= Date.now()) nextTimeoutAt += 5000;
   return nextTimeoutAt - Date.now();
 };
-
-class AlbumEmptyError extends Error {}
-class UpdateImageError extends Error {}
 
 export default function FramePage(props) {
   const {
@@ -66,118 +51,129 @@ export default function FramePage(props) {
     photoSize,
     backgroundType,
     backgroundColor,
-    imageUrl,
+    mediaUrl,
+    shareToken,
   } = props;
-  const [images, setImages] = useState([]);
-  const [albumIsEmpty, setAlbumIsEmpty] = useState(false);
+
+  const [items, setItems] = useState([]);
+  const [sourceEmpty, setSourceEmpty] = useState(false);
   const [error, setError] = useState(false);
-  const imageRef = useRef(null);
+  const currentRef = useRef(null);
+  const videoAdvanceRef = useRef(null); // called when video ends
 
   useEffect(() => {
     let loopTimeout;
 
-    const updateImage = async () => {
-      if (imageRef.current) {
-        // Fetch the newest image's expiry, continue if the expiry is
-        // not the same as the current image (e.g. it really IS a new image)
-        const headResponse = await timedFetch(10000, imageUrl, {
-          method: "HEAD",
-          cache: "reload",
-        });
-        const nextExpiresAt = new Date(headResponse.headers.get("expires"));
-        if (imageRef.current.expiresAt >= nextExpiresAt) return;
+    const fetchNextMedia = async () => {
+      // HEAD check: skip fetch if server says item hasn't changed yet
+      if (currentRef.current && currentRef.current.mediaType !== "video") {
+        const headRes = await timedFetch(10000, mediaUrl, { method: "HEAD", cache: "reload" });
+        const nextExpires = new Date(headRes.headers.get("expires"));
+        if (currentRef.current.expiresAt >= nextExpires) return;
       }
 
-      const imageResponse = await timedFetch(10000, imageUrl);
+      const res = await timedFetch(15000, mediaUrl, { cache: "reload" });
 
-      // If image returns a 404, it means the albums has no images
-      if (imageResponse.status === 404) throw new AlbumEmptyError();
+      if (res.status === 404) throw new SourceEmptyError();
+      if (!res.ok) throw new UpdateMediaError();
 
-      // Only continue if the response is ok
-      if (!imageResponse.ok) throw new UpdateImageError();
+      const mediaType = res.headers.get("X-Media-Type") || "image";
+      const fileId = res.headers.get("X-File-Id");
+      const expiresAt = new Date(res.headers.get("expires"));
+      const timestamp = new Date(Number(res.headers.get("X-Photo-Timestamp")) * 1000);
+      const place = decodeURIComponent(res.headers.get("X-Photo-Place") || "");
+      const duration = res.headers.get("X-Duration") || "full";
 
-      const blobUrl = await responseToBlobUrl(imageResponse);
-
-      // Prepare next image
-      const rotationUnit = imageResponse.headers.get("X-Frame-Rotation-Unit");
-      const nextImage = {
-        url: blobUrl,
-        expiresAt: new Date(imageResponse.headers.get("expires")),
-        place: decodeURIComponent(imageResponse.headers.get("X-Photo-Place")),
-        timestamp: new Date(
-          imageResponse.headers.get("X-Photo-Timestamp") * 1000,
-        ),
-        refreshInterval: rotationUnitRefreshInterval[rotationUnit],
-      };
-      imageRef.current = nextImage;
-
-      setImages((images) => [images.at(0), nextImage].filter(Boolean));
-
-      // Remove previous image when the new image has faded in
-      if (imageRef.current) {
-        dispatch("pf:image-fadestart", { image: nextImage });
-        await new Promise((resolve) => {
-          setTimeout(() => {
-            setImages([nextImage]);
-            dispatch("pf:image-visible", { image: nextImage });
-            resolve();
-          }, 2000);
-        });
+      let url;
+      if (mediaType === "video") {
+        // For video: use dedicated streaming endpoint — no blob conversion (saves RAM on Pi)
+        const base = mediaUrl.replace(/\/media$/, "");
+        url = `${base}/file/${fileId}`;
       } else {
-        dispatch("pf:image-visible", { image: nextImage });
-        dispatch("pf:frame-ready", { image: nextImage });
+        // For image/document: blob URL prevents browser from caching the rotating preview
+        url = await responseToBlobUrl(res);
+      }
+
+      const next = { url, mediaType, expiresAt, timestamp, place, duration, fileId };
+      currentRef.current = next;
+
+      let hadPrevious = false;
+      setItems((prev) => {
+        hadPrevious = prev.length > 0;
+        return [prev.at(-1), next].filter(Boolean);
+      });
+
+      // After fade-in delay, clear the previous item
+      if (hadPrevious) {
+        dispatch("mf:media-fadestart", { item: next });
+        await new Promise((resolve) => setTimeout(() => {
+          setItems([next]);
+          dispatch("mf:media-visible", { item: next });
+          resolve();
+        }, 2000));
+      } else {
+        dispatch("mf:media-visible", { item: next });
+        dispatch("mf:frame-ready", { item: next });
       }
     };
 
-    const loop = async function () {
+    const loop = async () => {
       try {
-        // Update image if expired
-        if (Date.now() > imageRef.current.expiresAt) await updateImage();
+        const current = currentRef.current;
+        if (!current) return;
+
+        const isExpired = current.mediaType === "video"
+          ? false // videos advance via videoAdvanceRef callback, not time
+          : Date.now() > current.expiresAt;
+
+        if (isExpired) await fetchNextMedia();
       } finally {
-        // Always schedule new loop
-        loopTimeout = setTimeout(loop, getNextTimeoutDelay(imageRef.current));
+        loopTimeout = setTimeout(loop, getNextTimeoutDelay(currentRef.current));
       }
     };
 
-    // Do initial image update
-    updateImage()
+    // Wire up video-ended callback
+    videoAdvanceRef.current = async () => {
+      currentRef.current = null; // force fetch
+      try {
+        await fetchNextMedia();
+        loopTimeout = setTimeout(loop, getNextTimeoutDelay(currentRef.current));
+      } catch {
+        setError(true);
+      }
+    };
+
+    fetchNextMedia()
       .then(() => {
-        // If successful, start update loop
-        loopTimeout = setTimeout(loop, getNextTimeoutDelay());
+        loopTimeout = setTimeout(loop, getNextTimeoutDelay(currentRef.current));
       })
       .catch((e) => {
-        // If not successful, show empty or error state
-        if (e instanceof AlbumEmptyError) {
-          setAlbumIsEmpty(true);
-          dispatch("pf:frame-ready", { image: null });
-        }
+        if (e instanceof SourceEmptyError) setSourceEmpty(true);
         setError(true);
       });
 
-    return () => clearTimeout(loopTimeout);
+    return () => {
+      clearTimeout(loopTimeout);
+      videoAdvanceRef.current = null;
+    };
   }, []);
 
-  if (albumIsEmpty) {
-    return html` <${EmptyAlbum} /> `;
-  }
-
-  if (error) {
-    return html` <${PhotoCouldNotBeLoaded} /> `;
-  }
+  if (sourceEmpty) return html`<${EmptyAlbum} />`;
+  if (error && items.length === 0) return html`<${PhotoCouldNotBeLoaded} />`;
 
   return html`
-    ${images.map(
-      (image) =>
-        html`<${Frame}
-          key=${image.expiresAt}
-          showPhotoTimestamp=${showPhotoTimestamp}
-          showPhotoPlace=${showPhotoPlace}
-          showClock=${showClock}
-          photoSize=${photoSize}
-          backgroundType=${backgroundType}
-          backgroundColor=${backgroundColor}
-          image=${image}
-        />`,
+    ${items.map((item) =>
+      html`<${Frame}
+        key=${item.fileId + "-" + item.mediaType}
+        showPhotoTimestamp=${showPhotoTimestamp}
+        showPhotoPlace=${showPhotoPlace}
+        showClock=${showClock}
+        photoSize=${photoSize}
+        backgroundType=${backgroundType}
+        backgroundColor=${backgroundColor}
+        item=${item}
+        onVideoEnded=${() => videoAdvanceRef.current?.()}
+      />`
     )}
   `;
 }

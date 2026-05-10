@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\PhotoFrames\Db;
+namespace OCA\MediaFrames\Db;
 
 use OCP\AppFramework\Db\Entity;
 
@@ -11,7 +11,7 @@ use OCP\AppFramework\Db\Entity;
  * @method void setFileId(int $fileId)
  * @method int getFrameId()
  * @method void setFrameId(int $frameId)
- * @method DateTime getCreatedAt()
+ * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
 class Entry extends Entity

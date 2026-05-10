@@ -1,32 +1,31 @@
 <?xml version="1.0"?>
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
-  <id>photo_frames</id>
-  <name>Photo Frames</name>
-  <summary>Turn any screen with a browser into a neat photo frame</summary>
-  <description><![CDATA[Generate easily sharable photo frame URLs for your Nextcloud albums.
+  <id>media_frames</id>
+  <name>Media Frames</name>
+  <summary>Turn any screen into a media frame — photos, videos, PDFs and more</summary>
+  <description><![CDATA[Display photos, videos, PDFs and Office documents from your Nextcloud albums or folders on any screen.
 
-The possiblities are endless:
-
-- Turn any android device into a smart photo frame (with the help of a kiosk browser)
-- Co-create photo frames with Nextcloud's collaborative albums
-- Share photo frames across households]]></description>
-  <version>1.7.0</version>
+Features:
+- Mix and match multiple albums and folders as sources for a single frame
+- Videos play to completion before advancing to the next item
+- PDFs and Office presentations rendered via Nextcloud preview
+- Optional device password to restrict who can view a frame URL
+- Lightweight frontend optimised for low-power devices like Raspberry Pi]]></description>
+  <version>1.0.0</version>
   <licence>agpl</licence>
-  <author mail="jeppester1@gmail.com" homepage="https://jsorensen.dk">Jesper Sørensen</author>
-  <namespace>PhotoFrames</namespace>
+  <author mail="thomas.grameld@gmail.com">Thomas Grameld</author>
+  <namespace>MediaFrames</namespace>
   <category>multimedia</category>
-  <bugs>https://github.com/jeppester/nextcloud-photo-frames/issues</bugs>
-  <screenshot>
-    https://raw.githubusercontent.com/jeppester/nextcloud-photo-frames/master/appinfo/screenshot.jpg</screenshot>
+  <bugs>https://github.com/Rolleps/nextcloud-media-frames/issues</bugs>
   <dependencies>
     <nextcloud min-version="29" max-version="33" />
   </dependencies>
   <navigations>
     <navigation>
-      <id>photo_frames</id>
-      <name>Photo Frames</name>
-      <route>photo_frames.page.index</route>
+      <id>media_frames</id>
+      <name>Media Frames</name>
+      <route>media_frames.page.index</route>
       <icon>app.svg</icon>
       <type>link</type>
     </navigation>

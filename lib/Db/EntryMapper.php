@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\PhotoFrames\Db;
+namespace OCA\MediaFrames\Db;
 
 use DateTime;
 use OCP\AppFramework\Db\QBMapper;
@@ -14,13 +14,9 @@ class EntryMapper extends QBMapper
 {
   public function __construct(IDBConnection $db)
   {
-    parent::__construct($db, 'photo_frames_entries', Entry::class);
+    parent::__construct($db, 'media_frames_entries', Entry::class);
   }
 
-  /**
-   * @param string $frameId
-   * @return Entry
-   */
   public function getLatestEntry(int $frameId): ?Entry
   {
     $qb = $this->db->getQueryBuilder();
@@ -37,10 +33,7 @@ class EntryMapper extends QBMapper
     return count($entities) > 0 ? $entities[0] : null;
   }
 
-  /**
-   * @param string $frameId
-   * @return integer[]
-   */
+  /** @return integer[] */
   public function getUsedFileIds(int $frameId): array
   {
     $qb = $this->db->getQueryBuilder();
@@ -56,28 +49,18 @@ class EntryMapper extends QBMapper
     }, $this->findEntities($qb));
   }
 
-  /**
-   * @param int $fileId
-   * @param int $frameId
-   * @return Entry
-   * @throws Exception
-   */
+  /** @throws Exception */
   public function createEntry(int $fileId, int $frameId): Entry
   {
     $entry = new Entry();
     $entry->setFileId($fileId);
     $entry->setFrameId($frameId);
-    $timestamp = new DateTime();
-    $entry->setCreatedAt($timestamp);
+    $entry->setCreatedAt(new DateTime());
 
     return $this->insert($entry);
   }
 
-  /**
-   * @param string $frameId
-   * @return void
-   * @throws Exception
-   */
+  /** @throws Exception */
   public function deleteFrameEntries(int $frameId): void
   {
     $qb = $this->db->getQueryBuilder();

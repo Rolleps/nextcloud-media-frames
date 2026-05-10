@@ -52,10 +52,10 @@ export default function EmptyAlbum() {
   return html`
     <div className=${styles.container}>
       <div className=${styles.message}>
-        <h1 className=${styles.heading}>Album is empty</h1>
+        <h1 className=${styles.heading}>No media found</h1>
         <p className=${styles.info}>
-          Add some photos to the album, or pick a different album, then reload
-          the frame.
+          Add photos, videos or documents to your sources, or edit the frame to
+          add a different album or folder, then reload.
         </p>
         <button onClick=${() => location.reload()} className=${styles.button}>
           Reload
