@@ -1,13 +1,22 @@
-![Screenshot](appinfo/screenshot.jpg)
+# Media Frames
 
-# Photo Frames
+[![Nextcloud Store](https://img.shields.io/badge/nextcloud_store-blue?style=for-the-badge)](https://apps.nextcloud.com/apps/media_frames)
 
-[![Nextcloud Store](https://img.shields.io/badge/nextcloud_store-blue?style=for-the-badge)](https://apps.nextcloud.com/apps/photo_frames)
+Fork of [nextcloud-photo-frames](https://github.com/jeppester/nextcloud-photo-frames) extended with video, folder, and file support.
 
-Generate easily sharable photo frame URLs for your Nextcloud albums.
+Generate easily shareable media frame URLs for your Nextcloud albums and folders.
 
-The possiblities are endless:
+## Features
 
-- Turn any android device into a smart photo frame (with the help of a kiosk browser)
-- Co-create photo frames with Nextcloud's collaborative albums
-- Share photo frames across households
+- **Folder support** — use any folder from your Nextcloud, not just albums
+- **Video playback** — plays videos to the end, then auto-advances to the next media
+- **PDF & Office files** — displays documents via Nextcloud's preview API
+- **Place names** — shows reverse-geocoded location from photo GPS data (requires Memories app)
+- **Device password** — optional password protection for public frame URLs
+- **Raspberry Pi optimised** — lightweight Preact frontend, no build step required
+
+## Use cases
+
+- Turn a Raspberry Pi or Android device into a smart photo/video frame (use a kiosk browser)
+- Display a rotating slideshow from any folder or album
+- Share media frames across households
