@@ -6,7 +6,6 @@ import {
 import { css } from "../vendor/emotion-css.min.mjs";
 
 import CopyButton from "../components/CopyButton.mjs";
-import Schedule from "./Schedule.mjs";
 import Screen from "./Screen.mjs";
 
 const fullUrl = (path) => location.origin + path;
@@ -116,7 +115,6 @@ export default function FrameItem(props) {
           <strong>Select:</strong>${" "}
           ${{ latest: "Latest", oldest: "Oldest", random: "Random" }[frame.selectionMethod]}
         </p>
-        <${Schedule} ...${frame} />
       </div>
     </div>
   `;

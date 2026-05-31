@@ -26,7 +26,7 @@ const styles = {
     font-family: "Noto Sans", sans-serif;
 
     & + & {
-      animation: ${animations.fadeIn} 2s ease-in-out;
+      animation: ${animations.fadeIn} 2s ease-in-out both;
     }
   `,
   photoBackground: css`
@@ -72,7 +72,9 @@ export default function Frame(props) {
     item,
     backgroundType,
     backgroundColor,
+    hidden,
     onVideoEnded,
+    onVideoReady,
   } = props;
 
   const canvasRef = useRef();
@@ -101,8 +103,13 @@ export default function Frame(props) {
 
   if (!item) return null;
 
+  // When hidden: the video is buffering but not yet ready. Keep it in the DOM
+  // so it can download, but make it invisible so the previous frame shows through.
+  // When unhidden, the CSS & + & animation kicks in for the fade-in.
+  const hiddenStyle = hidden ? { opacity: 0, animationName: 'none' } : undefined;
+
   return html`
-    <div className=${styles.frame}>
+    <div className=${styles.frame} style=${hiddenStyle}>
       ${showBackground && html`
         ${backgroundType === "aura"
           ? html`<div className=${styles.photoBackground} style=${{ backgroundImage: `url("${item.url}")` }} />`
@@ -118,6 +125,7 @@ export default function Frame(props) {
               autoplay
               muted
               playsinline
+              onCanPlay=${onVideoReady}
               onEnded=${onVideoEnded}
             />
           `

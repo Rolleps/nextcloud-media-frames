@@ -269,22 +269,30 @@ class FrameMapper extends QBMapper
       ? $this->listFolderRecursive($node)
       : $node->getDirectoryListing();
 
-    $files = [];
+    $fileNodes = [];
     foreach ($nodes as $fileNode) {
       if ($fileNode instanceof Folder) {
         continue;
       }
-      $mimeType = $fileNode->getMimeType();
-      if (!FrameFile::isSupportedMime($mimeType)) {
+      if (!FrameFile::isSupportedMime($fileNode->getMimeType())) {
         continue;
       }
+      $fileNodes[] = $fileNode;
+    }
+
+    $fileIds = array_map(fn($n) => $n->getId(), $fileNodes);
+    $metadatas = $this->getMetadataForFiles($fileIds);
+
+    $files = [];
+    foreach ($fileNodes as $fileNode) {
+      $metadata = $metadatas[$fileNode->getId()] ?? [];
       $files[] = new FrameFile(
         $fileNode->getId(),
         $userId,
-        $mimeType,
+        $fileNode->getMimeType(),
         $fileNode->getMTime(),
-        $fileNode->getMTime(),
-        null,
+        (int) ($metadata['capturedAt'] ?? $fileNode->getMTime()),
+        $metadata['place'] ?? null,
       );
     }
 

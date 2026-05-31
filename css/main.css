@@ -1,28 +1,28 @@
 @import './fonts.css';
 
 /* Global */
-.app-photo_frames .app-content {
-  width: 100%;
-  height: 100%;
-  overflow-y: scroll;
+.app-media_frames .app-content {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
   background-color: var(--color-main-background);
   padding: 1.5rem;
 }
 
-.app-photo_frames p, .app-photo_frames ul {
+.app-media_frames p, .app-media_frames ul {
   margin-top: 1rem;
 }
 
-.app-photo_frames h2 {
+.app-media_frames h2 {
   margin: 0;
 }
 
-.app-photo_frames li {
+.app-media_frames li {
   list-style-type: initial;
   margin-left: 1rem;
 }
 
-.app-photo_frames label {
+.app-media_frames label {
   display: inline-flex;
   align-self: flex-start;
   user-select: none;
@@ -33,7 +33,7 @@
   }
 }
 
-.app-photo_frames input {
+.app-media_frames input {
   height: auto;
   min-height: 1.5rem;
   display: inline-flex;
@@ -41,15 +41,15 @@
 }
 
 /* Utils */
-.app-photo_frames .flex {
+.app-media_frames .flex {
   display: flex;
   gap: 1rem;
 }
 
-.app-photo_frames .grow {
+.app-media_frames .grow {
   flex-grow: 1;
 }
 
-.app-photo_frames .text-center {
+.app-media_frames .text-center {
   text-align: center;
 }

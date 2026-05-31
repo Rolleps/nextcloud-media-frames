@@ -34,15 +34,20 @@ class MediaFrameService
     $this->frame = $frame;
   }
 
-  public function getCurrentFrameFile(): ?FrameFile
+  public function getCurrentFrameFile(?int $skipFileId = null): ?FrameFile
   {
     $latestEntry = $this->entryMapper->getLatestEntry($this->frame->getId());
 
     if ($latestEntry && !$this->entryExpired($latestEntry)) {
-      $frameFile = $this->getFrameFileById($latestEntry->getFileId());
-      if ($frameFile) {
-        $frameFile->setExpiresAt($this->getEntryExpiry($latestEntry));
-        return $frameFile;
+      // Client signals video finished — advance past it without treating it as unused
+      if ($skipFileId !== null && $latestEntry->getFileId() === $skipFileId) {
+        // Fall through to pick next file; old entry stays in used pool
+      } else {
+        $frameFile = $this->getFrameFileById($latestEntry->getFileId());
+        if ($frameFile) {
+          $frameFile->setExpiresAt($this->getEntryExpiry($latestEntry));
+          return $frameFile;
+        }
       }
     }
 

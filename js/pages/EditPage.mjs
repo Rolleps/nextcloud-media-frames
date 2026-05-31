@@ -9,18 +9,16 @@ export default function EditPage({ frame, requestToken, albums, urls }) {
   ];
 
   return html`
-    <>
-      <form action=${frame.urls.update} method="post">
-        <${Breadcrumbs} items=${breadcrumbItems}>
-          <button type="submit" class="primary">Save frame</button>
-        <//>
-        <${FrameFields}
-          albums=${albums}
-          frame=${frame}
-          requestToken=${requestToken}
-          foldersUrl=${urls.folders}
-        />
-      </form>
-    </>
+    <form action=${frame.urls.update} method="post">
+      <${Breadcrumbs} items=${breadcrumbItems}>
+        <button type="submit" class="primary">Save frame</button>
+      <//>
+      <${FrameFields}
+        albums=${albums}
+        frame=${frame}
+        requestToken=${requestToken}
+        foldersUrl=${urls.folders}
+      />
+    </form>
   `;
 }

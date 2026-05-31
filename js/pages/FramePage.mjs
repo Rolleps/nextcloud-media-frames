@@ -56,15 +56,17 @@ export default function FramePage(props) {
   } = props;
 
   const [items, setItems] = useState([]);
+  const [hiddenInstanceId, setHiddenInstanceId] = useState(null);
   const [sourceEmpty, setSourceEmpty] = useState(false);
   const [error, setError] = useState(false);
   const currentRef = useRef(null);
-  const videoAdvanceRef = useRef(null); // called when video ends
+  const videoAdvanceRef = useRef(null);
+  const videoReadyRef = useRef(null); // resolves when video canplay fires
 
   useEffect(() => {
     let loopTimeout;
 
-    const fetchNextMedia = async () => {
+    const fetchNextMedia = async (skipFileId = null) => {
       // HEAD check: skip fetch if server says item hasn't changed yet
       if (currentRef.current && currentRef.current.mediaType !== "video") {
         const headRes = await timedFetch(10000, mediaUrl, { method: "HEAD", cache: "reload" });
@@ -72,7 +74,8 @@ export default function FramePage(props) {
         if (currentRef.current.expiresAt >= nextExpires) return;
       }
 
-      const res = await timedFetch(15000, mediaUrl, { cache: "reload" });
+      const fetchUrl = skipFileId != null ? `${mediaUrl}?skipFileId=${skipFileId}` : mediaUrl;
+      const res = await timedFetch(15000, fetchUrl, { cache: "reload" });
 
       if (res.status === 404) throw new SourceEmptyError();
       if (!res.ok) throw new UpdateMediaError();
@@ -86,28 +89,51 @@ export default function FramePage(props) {
 
       let url;
       if (mediaType === "video") {
-        // For video: use dedicated streaming endpoint — no blob conversion (saves RAM on Pi)
+        // /media returns only headers for videos — fetch actual file via /file/{fileId}
         const base = mediaUrl.replace(/\/media$/, "");
         url = `${base}/file/${fileId}`;
       } else {
-        // For image/document: blob URL prevents browser from caching the rotating preview
+        // Blob URL prevents browser caching the rotating preview
         url = await responseToBlobUrl(res);
       }
 
-      const next = { url, mediaType, expiresAt, timestamp, place, duration, fileId };
+      const next = { url, mediaType, expiresAt, timestamp, place, duration, fileId, instanceId: Date.now() };
       currentRef.current = next;
 
       let hadPrevious = false;
-      setItems((prev) => {
-        hadPrevious = prev.length > 0;
-        return [prev.at(-1), next].filter(Boolean);
-      });
+      if (mediaType === "video") {
+        // Add the video hidden — it starts downloading immediately but prev frame
+        // stays fully visible until the video fires canplay.
+        setHiddenInstanceId(next.instanceId);
+        setItems((prev) => {
+          hadPrevious = prev.length > 0;
+          return [prev.at(-1), next].filter(Boolean);
+        });
+
+        if (hadPrevious) {
+          // Wait for canplay (max 60s) before starting the visual transition
+          await new Promise((resolve) => {
+            videoReadyRef.current = resolve;
+            setTimeout(resolve, 60000);
+          });
+        }
+
+        // Unhide: CSS & + & animation kicks in now
+        setHiddenInstanceId(null);
+      } else {
+        // Images are already decoded as blob URLs — add and fade immediately
+        setItems((prev) => {
+          hadPrevious = prev.length > 0;
+          return [prev.at(-1), next].filter(Boolean);
+        });
+      }
 
       // After fade-in delay, clear the previous item
       if (hadPrevious) {
         dispatch("mf:media-fadestart", { item: next });
         await new Promise((resolve) => setTimeout(() => {
           setItems([next]);
+          setHiddenInstanceId(null);
           dispatch("mf:media-visible", { item: next });
           resolve();
         }, 2000));
@@ -123,7 +149,7 @@ export default function FramePage(props) {
         if (!current) return;
 
         const isExpired = current.mediaType === "video"
-          ? false // videos advance via videoAdvanceRef callback, not time
+          ? false
           : Date.now() > current.expiresAt;
 
         if (isExpired) await fetchNextMedia();
@@ -132,11 +158,10 @@ export default function FramePage(props) {
       }
     };
 
-    // Wire up video-ended callback
-    videoAdvanceRef.current = async () => {
-      currentRef.current = null; // force fetch
+    videoAdvanceRef.current = async (completedFileId) => {
+      currentRef.current = null;
       try {
-        await fetchNextMedia();
+        await fetchNextMedia(completedFileId);
         loopTimeout = setTimeout(loop, getNextTimeoutDelay(currentRef.current));
       } catch {
         setError(true);
@@ -155,6 +180,7 @@ export default function FramePage(props) {
     return () => {
       clearTimeout(loopTimeout);
       videoAdvanceRef.current = null;
+      videoReadyRef.current = null;
     };
   }, []);
 
@@ -164,7 +190,7 @@ export default function FramePage(props) {
   return html`
     ${items.map((item) =>
       html`<${Frame}
-        key=${item.fileId + "-" + item.mediaType}
+        key=${item.instanceId}
         showPhotoTimestamp=${showPhotoTimestamp}
         showPhotoPlace=${showPhotoPlace}
         showClock=${showClock}
@@ -172,7 +198,9 @@ export default function FramePage(props) {
         backgroundType=${backgroundType}
         backgroundColor=${backgroundColor}
         item=${item}
-        onVideoEnded=${() => videoAdvanceRef.current?.()}
+        hidden=${item.instanceId === hiddenInstanceId}
+        onVideoEnded=${() => videoAdvanceRef.current?.(item.fileId)}
+        onVideoReady=${() => videoReadyRef.current?.()}
       />`
     )}
   `;

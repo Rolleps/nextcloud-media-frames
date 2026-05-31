@@ -227,7 +227,7 @@ class PageController extends Controller
       $newPassword = $params['devicePassword'] ?? '';
       if ($newPassword !== '') {
         $passwordHash = $this->hashPassword($newPassword);
-      } elseif (($params['clearDevicePassword'] ?? '') === '1') {
+      } elseif (!empty($params['clearDevicePassword'])) {
         $frame->setDevicePasswordHash(null);
       }
 
@@ -284,7 +284,11 @@ class PageController extends Controller
   {
     try {
       $uid = $this->currentUser->getUID();
-      $path = $this->request->getParam('path', '/');
+      $rawPath = $this->request->getParam('path', '/');
+      $path = '/' . trim(preg_replace('/\/+/', '/', $rawPath), '/');
+      if ($path === '/') {
+        $path = '/';
+      }
       $userFolder = $this->rootFolder->getUserFolder($uid);
 
       $node = $path === '/' ? $userFolder : $userFolder->get($path);
@@ -296,9 +300,10 @@ class PageController extends Controller
       $folders = [];
       foreach ($node->getDirectoryListing() as $child) {
         if ($child instanceof Folder) {
+          $childPath = rtrim($path, '/') . '/' . $child->getName();
           $folders[] = [
             'name' => $child->getName(),
-            'path' => $path === '/' ? '/' . $child->getName() : $path . '/' . $child->getName(),
+            'path' => $childPath,
           ];
         }
       }
@@ -416,8 +421,16 @@ class PageController extends Controller
   #[NoCSRFRequired]
   #[PublicPage]
   #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
-  #[FrontpageRoute(verb: 'GET', url: '/{shareToken}/media', requirements: ['shareToken' => '[a-zA-Z0-9]+'])]
   #[FrontpageRoute(verb: 'HEAD', url: '/{shareToken}/media', requirements: ['shareToken' => '[a-zA-Z0-9]+'])]
+  public function mediaframeMediaHead($shareToken): Response
+  {
+    return $this->mediaframeMedia($shareToken);
+  }
+
+  #[NoCSRFRequired]
+  #[PublicPage]
+  #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+  #[FrontpageRoute(verb: 'GET', url: '/{shareToken}/media', requirements: ['shareToken' => '[a-zA-Z0-9]+'])]
   public function mediaframeMedia($shareToken): Response
   {
     $frame = $this->getFrameOrThrottle($shareToken);
@@ -431,8 +444,10 @@ class PageController extends Controller
     }
 
     try {
+      $skipFileIdParam = $this->request->getParam('skipFileId');
+      $skipFileId = $skipFileIdParam !== null ? (int) $skipFileIdParam : null;
       $service = new MediaFrameService($this->entryMapper, $this->frameMapper, $this->rootFolder, $frame);
-      $frameFile = $service->getCurrentFrameFile();
+      $frameFile = $service->getCurrentFrameFile($skipFileId);
 
       if (!$frameFile) {
         return new NotFoundResponse();
@@ -455,9 +470,9 @@ class PageController extends Controller
       }
 
       if ($mediaType === FrameFile::MEDIA_TYPE_VIDEO) {
-        // Stream video directly
-        $data = $node->getContent();
-        return new DataDisplayResponse($data, 200, array_merge($baseHeaders, [
+        // Return only metadata headers — the client fetches the actual video via /file/{fileId}
+        // so there is no need to stream the file body here (which would waste a full download).
+        return new Response(200, array_merge($baseHeaders, [
           'Content-Type' => $frameFile->getMimeType(),
           'X-Duration' => $frame->getVideoDuration() === 'full' ? 'full' : (string) $frame->getVideoFixedDurationSeconds(),
         ]));

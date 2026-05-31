@@ -6,20 +6,11 @@ import {
 } from "../vendor/htm-preact-standalone.min.mjs";
 import Frame from "./Frame.mjs";
 import { css } from "../vendor/emotion-css.min.mjs";
-import Schedule from "./Schedule.mjs";
-import nPhotos from "../utils/nPhotos.mjs";
 import Screen from "./Screen.mjs";
 import RadioButtons from "./RadioButtons.mjs";
 import JavascriptModal from "./JavascriptModal.mjs";
+import FolderBrowser from "./FolderBrowser.mjs";
 
-const rotationsOptionsForUnit = {
-  day: [1, 2, 3, 4, 6, 8, 12],
-  hour: [1, 2, 3, 4, 6, 10, 15, 20, 30],
-  minute: [1, 2, 3, 4, 6],
-};
-
-const getClosestOption = (options, current) =>
-  options.find((option) => option >= current) || options.at(-1);
 
 const styles = {
   frameFields: css`
@@ -120,13 +111,14 @@ const styles = {
   `,
   sourceName: css`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`,
   removeBtn: css`
-    background: none;
+    background: none !important;
     border: none;
     cursor: pointer;
     padding: 0 0.3rem;
     color: var(--color-error, #e74c3c);
     font-size: 1.1rem;
     line-height: 1;
+    &:hover, &:focus { background: none !important; opacity: 0.8; }
   `,
   addSourceRow: css`
     display: flex;
@@ -134,10 +126,6 @@ const styles = {
     align-items: flex-start;
     flex-wrap: wrap;
     margin-top: 0.5rem;
-  `,
-  folderInput: css`
-    flex: 1;
-    min-width: 140px;
   `,
   passwordRow: css`
     display: flex;
@@ -166,7 +154,7 @@ const testImagePortrait = {
 
 export default function FrameFields(props) {
   const { frame, albums, requestToken, foldersUrl } = props;
-  const startDayAtRef = useRef();
+  const sourcesInputRef = useRef();
 
   const [data, setData] = useState({
     name: frame.name || "",
@@ -181,8 +169,6 @@ export default function FrameFields(props) {
     backgroundColor: frame.backgroundColor || "#000000",
     rotationUnit: frame.rotationUnit || "hour",
     rotationsPerUnit: frame.rotationsPerUnit || 1,
-    startDayAt: frame.startDayAt || "07:00",
-    endDayAt: frame.endDayAt || "22:00",
     imageDurationSeconds: frame.imageDurationSeconds || 30,
     videoDuration: frame.videoDuration || "full",
     videoFixedDurationSeconds: frame.videoFixedDurationSeconds || 30,
@@ -191,13 +177,8 @@ export default function FrameFields(props) {
     javascript: frame.javascript || "",
   });
 
-  // Folder picker state
   const [newSourceType, setNewSourceType] = useState("album");
   const [newAlbumId, setNewAlbumId] = useState("");
-  const [newFolderPath, setNewFolderPath] = useState("");
-  const [folderRecursive, setFolderRecursive] = useState(true);
-  const [folderSuggestions, setFolderSuggestions] = useState([]);
-
   const [openedModal, setOpenedModal] = useState(null);
 
   const handleInput = ({ target: { name, value, checked, type } }) => {
@@ -207,70 +188,34 @@ export default function FrameFields(props) {
     }));
   };
 
-  const showStartEndOptions =
-    data.rotationUnit !== "day" || parseInt(data.rotationsPerUnit) !== 1;
-  const startEndIsInvalid =
-    data.endDayAt !== "00:00" && data.endDayAt <= data.startDayAt;
-
-  const rotationsOptions = rotationsOptionsForUnit[data.rotationUnit];
-
   const handleJavascriptSubmitted = (javascript) => {
     setData((prev) => ({ ...prev, javascript }));
     setOpenedModal(null);
   };
 
   useEffect(() => {
-    const rotationsPerUnit = getClosestOption(rotationsOptions, parseInt(data.rotationsPerUnit));
-    setData((prev) => ({ ...prev, rotationsPerUnit }));
-  }, [data.rotationUnit]);
-
-  useEffect(() => {
-    if (!showStartEndOptions) {
-      setData((prev) => ({ ...prev, startDayAt: "07:00", endDayAt: "22:00" }));
+    if (sourcesInputRef.current) {
+      sourcesInputRef.current.value = JSON.stringify(data.sources);
     }
-  }, [showStartEndOptions]);
+  }, [data.sources]);
 
-  useEffect(() => {
-    if (!startDayAtRef.current) return;
-    startDayAtRef.current.setCustomValidity(
-      startEndIsInvalid ? "Start time must be before end time" : ""
-    );
-  }, [startEndIsInvalid]);
-
-  // Browse subfolders via API
-  const browseFolder = async (path) => {
-    if (!foldersUrl) return;
-    try {
-      const res = await fetch(`${foldersUrl}?path=${encodeURIComponent(path)}`);
-      const json = await res.json();
-      setFolderSuggestions(json.folders || []);
-    } catch {
-      setFolderSuggestions([]);
-    }
+  const addAlbumSource = () => {
+    if (!newAlbumId) return;
+    const album = albums.find((a) => String(a.id) === String(newAlbumId));
+    if (!album) return;
+    setData((prev) => ({
+      ...prev,
+      sources: [...prev.sources, { type: "album", albumId: parseInt(newAlbumId), title: album.title }],
+    }));
+    setNewAlbumId("");
   };
 
-  const addSource = () => {
-    if (newSourceType === "album") {
-      if (!newAlbumId) return;
-      const album = albums.find((a) => String(a.id) === String(newAlbumId));
-      if (!album) return;
-      setData((prev) => ({
-        ...prev,
-        sources: [...prev.sources, { type: "album", albumId: parseInt(newAlbumId), title: album.title }],
-      }));
-      setNewAlbumId("");
-    } else {
-      if (!newFolderPath.trim()) return;
-      const path = newFolderPath.trim().startsWith("/")
-        ? newFolderPath.trim()
-        : "/" + newFolderPath.trim();
-      setData((prev) => ({
-        ...prev,
-        sources: [...prev.sources, { type: "folder", path, recursive: folderRecursive }],
-      }));
-      setNewFolderPath("");
-      setFolderSuggestions([]);
-    }
+  const addFolderSource = (path, recursive) => {
+    setData((prev) => ({
+      ...prev,
+      sources: [...prev.sources, { type: "folder", path, recursive }],
+    }));
+    setOpenedModal(null);
   };
 
   const removeSource = (index) => {
@@ -286,7 +231,7 @@ export default function FrameFields(props) {
     <div className=${styles.frameFields}>
       <div>
         <input type="hidden" name="requesttoken" value="${requestToken}" />
-        <input type="hidden" name="sources" value=${sourcesJson} />
+        <input type="hidden" name="sources" ref=${sourcesInputRef} />
 
         <div>
           <h3 className=${styles.fieldTitle}>Name</h3>
@@ -300,7 +245,6 @@ export default function FrameFields(props) {
           />
         </div>
 
-        <!-- ── Sources ── -->
         <div>
           <h3 className=${styles.fieldTitle}>Media sources</h3>
           <p className=${styles.tip}>
@@ -350,49 +294,19 @@ export default function FrameFields(props) {
                       <option key=${a.id} value=${a.id}>${a.title}</option>
                     `)}
                   </select>
+                  <button type="button" onClick=${addAlbumSource}>Add</button>
                 `
               : html`
-                  <div style="flex:1;display:flex;flex-direction:column;gap:0.3rem;">
-                    <input
-                      type="text"
-                      className=${styles.folderInput}
-                      placeholder="/Photos/Vacation"
-                      value=${newFolderPath}
-                      onInput=${(e) => {
-                        setNewFolderPath(e.target.value);
-                        const p = e.target.value || "/";
-                        browseFolder(p.includes("/") ? p.substring(0, p.lastIndexOf("/") + 1) : "/");
-                      }}
-                    />
-                    ${folderSuggestions.length > 0 && html`
-                      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
-                        ${folderSuggestions.map((f) => html`
-                          <button
-                            type="button"
-                            key=${f.path}
-                            style="font-size:0.8rem;padding:0.2rem 0.5rem;"
-                            onClick=${() => { setNewFolderPath(f.path); setFolderSuggestions([]); }}
-                          >${f.name}</button>
-                        `)}
-                      </div>
-                    `}
-                    <label className=${styles.inlineLabel}>
-                      <input
-                        type="checkbox"
-                        checked=${folderRecursive}
-                        onChange=${(e) => setFolderRecursive(e.target.checked)}
-                      />
-                      <span>Include subfolders</span>
-                    </label>
-                  </div>
+                  <button
+                    type="button"
+                    onClick=${() => setOpenedModal("folderBrowser")}
+                    style="flex:1;"
+                  >Browse folders…</button>
                 `
             }
-
-            <button type="button" onClick=${addSource}>Add</button>
           </div>
         </div>
 
-        <!-- ── Selection & rotation ── -->
         <div>
           <h3 className=${styles.fieldTitle}>Selection method</h3>
           <div className=${styles.radioButtons}>
@@ -423,57 +337,25 @@ export default function FrameFields(props) {
         </div>
 
         <div>
-          <h3 className=${styles.fieldTitle}>Photo / document rotation</h3>
-          <p>
-            Per${" "}
-            <select name="rotationUnit" value=${data.rotationUnit} onChange=${handleInput}>
-              <option value="day">day</option>
-              <option value="hour">hour</option>
-              <option value="minute">minute</option>
-            </select>
-            ${" "} show${" "}
-            <select name="rotationsPerUnit" value=${data.rotationsPerUnit} onChange=${handleInput}>
-              ${rotationsOptions.map((v) => html`<option key=${v} value=${v}>${v}</option>`)}
-            </select>
-            ${" "}${nPhotos(data.rotationsPerUnit, false)}
-
-            <br />
-            ${!showStartEndOptions && html`
-              <input type="hidden" name="startDayAt" value=${data.startDayAt} />
-              <input type="hidden" name="endDayAt" value=${data.endDayAt} />
-            `}
-            ${showStartEndOptions && html`
-              from${" "}
-              <input
-                type="time" name="startDayAt" value=${data.startDayAt}
-                required ref=${startDayAtRef} onChange=${handleInput}
-              />
-              ${" "}until${" "}
-              <input type="time" name="endDayAt" value=${data.endDayAt} required onChange=${handleInput} />
-            `}
-          </p>
-          ${startEndIsInvalid
-            ? html`<p className=${styles.error}>Start time must be before end time</p>`
-            : html`<${Schedule} ...${data} />`
-          }
-        </div>
-
-        <!-- ── Duration settings ── -->
-        <div>
+          <input type="hidden" name="rotationUnit" value=${data.rotationUnit} />
+          <input type="hidden" name="rotationsPerUnit" value=${data.rotationsPerUnit} />
           <h3 className=${styles.fieldTitle}>Display duration</h3>
           <p>
-            Images & documents:${" "}
+            Photos & documents:${" "}
             <input
               type="number"
               name="imageDurationSeconds"
               value=${data.imageDurationSeconds}
               min="1"
-              max="3600"
+              max="86400"
               style="width:5rem;"
               onInput=${handleInput}
             />
             ${" "}seconds each
+            <br />
           </p>
+          <input type="hidden" name="startDayAt" value="00:00" />
+          <input type="hidden" name="endDayAt" value="00:00" />
           <p style="margin-top:0.5rem;">
             Videos:${" "}
             <select name="videoDuration" value=${data.videoDuration} onChange=${handleInput}>
@@ -496,7 +378,6 @@ export default function FrameFields(props) {
           </p>
         </div>
 
-        <!-- ── Device password ── -->
         <div>
           <h3 className=${styles.fieldTitle}>Device access password <span style="font-size:0.8rem;font-weight:400;color:var(--color-text-lighter)">(optional)</span></h3>
           <p className=${styles.tip}>
@@ -534,7 +415,6 @@ export default function FrameFields(props) {
         </div>
       </div>
 
-      <!-- ── Preview column ── -->
       <div>
         <div className=${styles.previewAndDisplayOptions}>
           <div>
@@ -634,6 +514,14 @@ export default function FrameFields(props) {
           javascript=${data.javascript}
           onCancel=${() => setOpenedModal(null)}
           onSubmit=${handleJavascriptSubmitted}
+        />
+      `}
+
+      ${openedModal === "folderBrowser" && html`
+        <${FolderBrowser}
+          foldersUrl=${foldersUrl}
+          onSelect=${addFolderSource}
+          onCancel=${() => setOpenedModal(null)}
         />
       `}
     </div>
